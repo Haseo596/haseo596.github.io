@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bamjoball Live</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app">
+    <section class="topbar" aria-label="Матч">
+      <div class="brand">
+        <div class="mark">B</div>
+        <div>
+          <h1>Bamjoball Live</h1>
+          <p id="matchStatus">Не подключено</p>
+        </div>
+      </div>
+
+      <div class="scoreboard" aria-live="polite">
+        <div class="team red">
+          <span>Красные</span>
+          <strong id="redScore">0</strong>
+        </div>
+        <div class="clock">
+          <span id="tickLabel">0 / 64</span>
+          <div class="progress"><i id="progressBar"></i></div>
+        </div>
+        <div class="team blue">
+          <strong id="blueScore">0</strong>
+          <span>Синие</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="connection" aria-label="Подключение">
+      <label>
+        <span>Матч</span>
+        <input id="matchIdInput" autocomplete="off" spellcheck="false">
+      </label>
+      <label>
+        <span>Токен</span>
+        <input id="tokenInput" autocomplete="off" spellcheck="false">
+      </label>
+      <label class="wide">
+        <span>WebSocket</span>
+        <input id="wsInput" autocomplete="off" spellcheck="false" placeholder="wss://...">
+      </label>
+      <button id="connectButton" type="button">Подключить</button>
+    </section>
+
+    <section class="layout">
+      <section class="pitchPanel" aria-label="Поле">
+        <div class="pitchHeader">
+          <div>
+            <span id="phaseLabel">Ожидание</span>
+            <strong id="matchIdLabel">-</strong>
+          </div>
+          <div id="serverTimeLabel">-</div>
+        </div>
+        <div id="pitch" class="pitch">
+          <div class="goal redGoal"></div>
+          <div class="goal blueGoal"></div>
+          <div class="centerLine"></div>
+          <div class="centerCircle"></div>
+          <div id="objectsLayer" class="layer"></div>
+          <div id="playersLayer" class="layer"></div>
+          <div id="ball" class="ball" aria-label="Мяч"></div>
+        </div>
+      </section>
+
+      <aside class="sidePanel" aria-label="События">
+        <section class="panelSection">
+          <h2>Составы</h2>
+          <div class="rosters">
+            <div>
+              <h3>Красные</h3>
+              <div id="redRoster" class="roster"></div>
+            </div>
+            <div>
+              <h3>Синие</h3>
+              <div id="blueRoster" class="roster"></div>
+            </div>
+          </div>
+        </section>
+        <section class="panelSection eventsSection">
+          <h2>События</h2>
+          <div id="events" class="events"></div>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
