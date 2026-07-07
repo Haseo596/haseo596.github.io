@@ -269,31 +269,23 @@
     const t = clamp((now - state.animationStartedAt) / state.animationDurationMs, 0, 1);
     const eased = easeInOut(t);
     const previousPlayers = new Map(state.previousFrame.players.map((player) => [String(player.id), player]));
+    const players = state.targetFrame.players.map((player) => {
+      const previous = previousPlayers.get(String(player.id)) || player;
+      return {
+        ...player,
+        lane: lerp(previous.lane, player.lane, eased),
+        column: lerp(previous.column, player.column, eased)
+      };
+    });
 
     return {
       ...state.targetFrame,
-      players: state.targetFrame.players.map((player) => {
-        const previous = previousPlayers.get(String(player.id)) || player;
-        return {
-          ...player,
-          lane: lerp(previous.lane, player.lane, eased),
-          column: lerp(previous.column, player.column, eased)
-        };
-      }),
+      players,
       ball: interpolateBall(state.previousFrame, state.targetFrame, eased)
     };
   }
 
   function interpolateBall(previousFrame, targetFrame, t) {
-    const targetHolder = targetFrame.players.find((player) => player.hasBall);
-    if (targetHolder) {
-      return {
-        ...targetFrame.ball,
-        lane: targetHolder.lane,
-        column: targetHolder.column
-      };
-    }
-
     const previousBall = previousFrame.ball || targetFrame.ball;
     return {
       ...targetFrame.ball,
