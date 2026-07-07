@@ -2,6 +2,7 @@
   const field = { lanes: 3, columns: 7 };
   const maxEvents = 90;
   const reconnectDelayMs = 2500;
+  const tickAnimationStretch = 1.12;
 
   const els = {
     matchStatus: document.getElementById("matchStatus"),
@@ -144,7 +145,7 @@
         state.info = message;
         field.lanes = message.field?.lanes || field.lanes;
         field.columns = message.field?.columns || field.columns;
-        state.animationDurationMs = clamp(message.tickDurationMs || 2800, 350, 10000);
+        state.animationDurationMs = getTickAnimationDuration();
         els.matchIdLabel.textContent = message.matchId || "-";
         setPhase(message.status);
         break;
@@ -189,7 +190,7 @@
     state.animationDurationMs =
       sourceType === "snapshot"
         ? Math.min(state.animationDurationMs, 700)
-        : clamp(state.info?.tickDurationMs || state.animationDurationMs, 350, 10000);
+        : getTickAnimationDuration();
 
     updateScore(frame.score);
     updateTick(frame.tick);
@@ -267,22 +268,29 @@
     }
 
     const t = clamp((now - state.animationStartedAt) / state.animationDurationMs, 0, 1);
-    const eased = easeInOut(t);
     const previousPlayers = new Map(state.previousFrame.players.map((player) => [String(player.id), player]));
     const players = state.targetFrame.players.map((player) => {
       const previous = previousPlayers.get(String(player.id)) || player;
       return {
         ...player,
-        lane: lerp(previous.lane, player.lane, eased),
-        column: lerp(previous.column, player.column, eased)
+        lane: lerp(previous.lane, player.lane, t),
+        column: lerp(previous.column, player.column, t)
       };
     });
 
     return {
       ...state.targetFrame,
       players,
-      ball: interpolateBall(state.previousFrame, state.targetFrame, eased)
+      ball: interpolateBall(state.previousFrame, state.targetFrame, t)
     };
+  }
+
+  function getTickAnimationDuration() {
+    return clamp(
+      (state.info?.tickDurationMs || state.animationDurationMs || 2800) * tickAnimationStretch,
+      450,
+      12000
+    );
   }
 
   function interpolateBall(previousFrame, targetFrame, t) {
@@ -565,10 +573,6 @@
 
   function lerp(a, b, t) {
     return a + (b - a) * t;
-  }
-
-  function easeInOut(t) {
-    return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   }
 
   function clamp(value, min, max) {

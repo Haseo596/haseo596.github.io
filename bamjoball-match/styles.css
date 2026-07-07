@@ -353,24 +353,26 @@ h1 {
 }
 
 .player {
-  width: clamp(62px, 7.2vw, 92px);
+  width: clamp(52px, 5.8vw, 74px);
   z-index: 4;
   display: grid;
   justify-items: center;
-  transform: translate(-50%, -58%);
+  transform: translate(-50%, -56%);
   transition: filter 160ms ease;
 }
 
 .playerIcon {
-  width: clamp(48px, 5.8vw, 70px);
+  width: clamp(38px, 4.6vw, 54px);
   aspect-ratio: 1;
   border-radius: 0 0 7px 7px;
-  border: 3px solid var(--team-color);
+  border: 2px solid var(--team-color);
   background: #121619 center / cover no-repeat;
+  opacity: 0.82;
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.32);
 }
 
 .player.hasBall .playerIcon {
+  opacity: 0.96;
   filter: saturate(1.15) brightness(1.08);
   box-shadow: 0 0 0 4px rgba(244, 201, 93, 0.36), 0 14px 28px rgba(0, 0, 0, 0.38);
 }
@@ -380,17 +382,17 @@ h1 {
 }
 
 .playerLabel {
-  width: clamp(62px, 7.2vw, 92px);
+  width: clamp(52px, 5.8vw, 74px);
   max-width: 100%;
   margin-bottom: -3px;
-  padding: 3px 6px 4px;
-  border: 3px solid var(--team-color);
+  padding: 2px 5px 3px;
+  border: 2px solid var(--team-color);
   border-bottom: 0;
   border-radius: 7px 7px 0 0;
   color: white;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--team-color) 58%, #111 42%), color-mix(in srgb, var(--team-color) 34%, #050607 66%));
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
   line-height: 1.1;
   text-align: center;
@@ -641,16 +643,16 @@ h1 {
   }
 
   .player {
-    width: 58px;
+    width: 48px;
   }
 
   .playerLabel {
-    width: 58px;
-    font-size: 9px;
+    width: 48px;
+    font-size: 8px;
     padding-inline: 4px;
   }
 
   .playerIcon {
-    width: 44px;
+    width: 36px;
   }
 }
