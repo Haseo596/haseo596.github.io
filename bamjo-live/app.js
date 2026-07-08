@@ -40,6 +40,7 @@
     objectEls: new Map(),
     eventKeys: new Set(),
     effectKeys: new Set(),
+    pendingTimers: new Set(),
     events: []
   };
 
@@ -164,7 +165,7 @@
 
       els.connectButton.disabled = false;
       if (!state.shouldReconnect || getStatusCode() === "finished") {
-        setStatus(getStatusCode() === "finished" ? "Матч завершен" : "Отключено");
+        setStatus(getStatusCode() === "finished" ? "МАТЧ ОКОНЧЕН" : "Отключено");
         return;
       }
 
@@ -195,6 +196,11 @@
   }
 
   function resetMatchView() {
+    for (const timer of state.pendingTimers) {
+      clearTimeout(timer);
+    }
+
+    state.pendingTimers.clear();
     state.info = null;
     state.previousFrame = null;
     state.targetFrame = null;
@@ -254,7 +260,7 @@
       case "finished":
         updateServerTime(message.serverTime);
         setPhase("finished");
-        setStatus("Матч завершен");
+        setStatus("МАТЧ ОКОНЧЕН");
         state.shouldReconnect = false;
         updateScore(message.score);
         updateTick(message.tick);
@@ -297,12 +303,7 @@
     updateScore(frame.score);
     updateTick(frame.tick);
     updateRosters(frame.players);
-    spawnFrameEffects(frame);
-
-    const visibleEvents = frame.events.filter((event) => event.visible !== false);
-    for (const event of visibleEvents) {
-      pushEvent(event);
-    }
+    queueFrameEvents(frame, sourceType);
   }
 
   function normalizeFrame(message) {
@@ -317,7 +318,11 @@
         lane: Number(message.ball?.lane || 0),
         column: Number(message.ball?.column || 0),
         holderPlayerId: normalizeId(message.ball?.holderPlayerId),
-        lastTouchPlayerId: normalizeId(message.ball?.lastTouchPlayerId)
+        lastTouchPlayerId: normalizeId(message.ball?.lastTouchPlayerId),
+        power: Number(message.ball?.power || 0),
+        remainingSteps: Number(message.ball?.remainingSteps || 0),
+        laneVelocity: Number(message.ball?.laneVelocity || 0),
+        columnVelocity: Number(message.ball?.columnVelocity || 0)
       },
       players: (message.players || []).map((player) => ({
         id: normalizeId(player.id),
@@ -354,6 +359,7 @@
   }
 
   function render(now) {
+    updateMatchStatus();
     const frame = getInterpolatedFrame(now);
     if (frame) {
       updateTick(frame.visualTick ?? frame.tick);
@@ -434,11 +440,25 @@
       }
     }
 
+    const targetBall = projectFreeBall(targetFrame.ball);
     return {
-      ...targetFrame.ball,
+      ...targetBall,
       holderPlayerId: catching ? null : targetFrame.ball.holderPlayerId,
-      lane: lerp(previousBall.lane, targetFrame.ball.lane, t),
-      column: lerp(previousBall.column, targetFrame.ball.column, t)
+      lane: lerp(previousBall.lane, targetBall.lane, t),
+      column: lerp(previousBall.column, targetBall.column, t)
+    };
+  }
+
+  function projectFreeBall(ball) {
+    if (ball.holderPlayerId !== null || ball.remainingSteps <= 0) {
+      return ball;
+    }
+
+    const steps = Math.max(1, Math.min(2, ball.remainingSteps, Math.max(1, ball.power || 1)));
+    return {
+      ...ball,
+      lane: clamp(ball.lane + Math.sign(ball.laneVelocity || 0) * steps, 0, field.lanes - 1),
+      column: clamp(ball.column + Math.sign(ball.columnVelocity || 0) * steps, 0, field.columns - 1)
     };
   }
 
@@ -530,21 +550,62 @@
     els.ball.style.setProperty("--ball-y", `${position.y}%`);
   }
 
+  function queueFrameEvents(frame, sourceType) {
+    for (const event of frame.events) {
+      const delay = eventDelayMs(event, sourceType);
+      const timer = setTimeout(() => {
+        state.pendingTimers.delete(timer);
+        if (shouldSpawnEffect(event)) {
+          spawnEffectOnce(event, frame);
+        }
+        if (event.visible !== false) {
+          pushEvent(event);
+        }
+      }, delay);
+
+      state.pendingTimers.add(timer);
+    }
+  }
+
+  function eventDelayMs(event, sourceType) {
+    if (sourceType === "snapshot") {
+      return 0;
+    }
+
+    if (isResolutionEvent(event)) {
+      return Math.round(state.animationDurationMs * 0.82);
+    }
+
+    return 0;
+  }
+
+  function isResolutionEvent(event) {
+    return event.kind === "interception" ||
+      event.kind === "tackle" ||
+      event.kind === "save" ||
+      event.kind === "goal" ||
+      event.kind === "loose_ball";
+  }
+
   function spawnFrameEffects(frame) {
     for (const event of frame.events) {
       if (!shouldSpawnEffect(event)) {
         continue;
       }
 
-      const key = eventKey(event);
-      if (state.effectKeys.has(key)) {
-        continue;
-      }
-
-      state.effectKeys.add(key);
-      trimSet(state.effectKeys, 160);
-      spawnEffect(event, frame);
+      spawnEffectOnce(event, frame);
     }
+  }
+
+  function spawnEffectOnce(event, frame) {
+    const key = eventKey(event);
+    if (state.effectKeys.has(key)) {
+      return;
+    }
+
+    state.effectKeys.add(key);
+    trimSet(state.effectKeys, 160);
+    spawnEffect(event, frame);
   }
 
   function shouldSpawnEffect(event) {
@@ -738,6 +799,13 @@
     return `${minutes}:${String(seconds).padStart(2, "0")}`;
   }
 
+  function formatCountdown(ms) {
+    const totalSeconds = Math.max(0, Math.ceil(Number(ms || 0) / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  }
+
   function updateServerTime(value) {
     if (!value) {
       return;
@@ -753,6 +821,31 @@
     }
   }
 
+  function updateMatchStatus() {
+    const status = getStatusCode();
+    if (status === "finished") {
+      setStatus("МАТЧ ОКОНЧЕН");
+      return;
+    }
+
+    if (status !== "waiting" || !state.info?.startedAt) {
+      return;
+    }
+
+    const startedAtMs = Date.parse(state.info.startedAt);
+    if (!Number.isFinite(startedAtMs)) {
+      return;
+    }
+
+    const remainingMs = startedAtMs - Date.now();
+    if (remainingMs <= 0) {
+      setStatus("Идет матч");
+      return;
+    }
+
+    setStatus(`Матч начнется через ${formatCountdown(remainingMs)}`);
+  }
+
   function setStatus(text) {
     els.matchStatus.textContent = text;
   }
@@ -761,7 +854,7 @@
     const label = {
       waiting: "Ожидание",
       running: "Идет матч",
-      finished: "Завершен",
+      finished: "МАТЧ ОКОНЧЕН",
       expired: "Истек"
     }[status] || status || "Ожидание";
 
