@@ -52,19 +52,23 @@
     els.matchIdInput.value = params.get("id") || "";
     setCustomFieldImage(params.get("field"));
 
-    const wsParamKey = params.has("ws") ? "ws" : params.has("socket") ? "socket" : null;
-    const rawWsParam = wsParamKey ? params.get(wsParamKey) || "" : "";
-    const wsParam = sanitizeWebSocketUrl(rawWsParam);
-    if (wsParamKey && rawWsParam !== wsParam) {
-      params.set(wsParamKey, wsParam);
+    const wsSource = readWebSocketSource(params);
+    const wsFromLink = wsSource.value
+      ? normalizeWebSocketBase(wsSource.value) || wsSource.value
+      : "";
+    if (wsFromLink) {
+      localStorage.setItem("bamjoballLiveWs", wsFromLink);
     }
 
-    if (hadTokenParam || (wsParamKey && rawWsParam !== wsParam)) {
+    if (hadTokenParam || wsSource.shouldClean) {
+      params.delete("w");
+      params.delete("ws");
+      params.delete("socket");
       replaceCurrentQuery(params);
     }
 
     els.wsInput.value =
-      wsParam ||
+      wsFromLink ||
       localStorage.getItem("bamjoballLiveWs") ||
       deriveDefaultWebSocketBase() ||
       "";
@@ -88,7 +92,12 @@
       return;
     }
 
-    localStorage.setItem("bamjoballLiveWs", wsValue);
+    const wsBase = normalizeWebSocketBase(wsValue) || wsValue;
+    localStorage.setItem("bamjoballLiveWs", wsBase);
+    if (wsBase !== wsValue) {
+      els.wsInput.value = wsBase;
+    }
+
     openSocket(url);
   }
 
@@ -505,6 +514,25 @@
     return state.targetFrame?.status || state.info?.status || "";
   }
 
+  function readWebSocketSource(params) {
+    if (params.has("w")) {
+      return {
+        value: sanitizeWebSocketUrl(decodeBase64Url(params.get("w") || "")),
+        shouldClean: true
+      };
+    }
+
+    const key = params.has("ws") ? "ws" : params.has("socket") ? "socket" : null;
+    if (!key) {
+      return { value: "", shouldClean: false };
+    }
+
+    return {
+      value: sanitizeWebSocketUrl(params.get(key) || ""),
+      shouldClean: true
+    };
+  }
+
   function buildWebSocketUrl(value, matchId) {
     if (!value || !matchId) {
       return null;
@@ -543,6 +571,48 @@
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     return `${protocol}//${host}`;
+  }
+
+  function decodeBase64Url(value) {
+    if (!value) {
+      return "";
+    }
+
+    try {
+      let base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+      while (base64.length % 4) {
+        base64 += "=";
+      }
+
+      const binary = atob(base64);
+      const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+      return new TextDecoder().decode(bytes);
+    } catch {
+      return "";
+    }
+  }
+
+  function normalizeWebSocketBase(value) {
+    if (!value) {
+      return "";
+    }
+
+    try {
+      const url = new URL(value);
+      if (url.protocol !== "ws:" && url.protocol !== "wss:") {
+        return "";
+      }
+
+      url.pathname = url.pathname
+        .replace(/\/(?:ws\/)?matches\/[^/]+\/?$/i, "")
+        .replace(/\/+$/, "");
+      url.search = "";
+      url.hash = "";
+
+      return url.toString().replace(/\/+$/, "");
+    } catch {
+      return "";
+    }
   }
 
   function sanitizeWebSocketUrl(value) {
