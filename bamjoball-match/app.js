@@ -11,7 +11,6 @@
     tickLabel: document.getElementById("tickLabel"),
     progressBar: document.getElementById("progressBar"),
     matchIdInput: document.getElementById("matchIdInput"),
-    tokenInput: document.getElementById("tokenInput"),
     wsInput: document.getElementById("wsInput"),
     connectButton: document.getElementById("connectButton"),
     phaseLabel: document.getElementById("phaseLabel"),
@@ -45,11 +44,25 @@
 
   function init() {
     const params = new URLSearchParams(window.location.search);
+    const hadTokenParam = params.has("token");
+    if (hadTokenParam) {
+      params.delete("token");
+    }
+
     els.matchIdInput.value = params.get("id") || "";
-    els.tokenInput.value = params.get("token") || "";
     setCustomFieldImage(params.get("field"));
 
-    const wsParam = params.get("ws") || params.get("socket") || "";
+    const wsParamKey = params.has("ws") ? "ws" : params.has("socket") ? "socket" : null;
+    const rawWsParam = wsParamKey ? params.get(wsParamKey) || "" : "";
+    const wsParam = sanitizeWebSocketUrl(rawWsParam);
+    if (wsParamKey && rawWsParam !== wsParam) {
+      params.set(wsParamKey, wsParam);
+    }
+
+    if (hadTokenParam || (wsParamKey && rawWsParam !== wsParam)) {
+      replaceCurrentQuery(params);
+    }
+
     els.wsInput.value =
       wsParam ||
       localStorage.getItem("bamjoballLiveWs") ||
@@ -58,20 +71,19 @@
 
     els.connectButton.addEventListener("click", connectFromInputs);
 
-    if (els.matchIdInput.value && els.tokenInput.value && els.wsInput.value) {
+    if (els.matchIdInput.value && els.wsInput.value) {
       connectFromInputs();
-    } else if (els.matchIdInput.value && els.tokenInput.value) {
+    } else if (els.matchIdInput.value) {
       setStatus("Нужен WebSocket URL");
     }
   }
 
   function connectFromInputs() {
     const matchId = els.matchIdInput.value.trim();
-    const token = els.tokenInput.value.trim();
     const wsValue = els.wsInput.value.trim();
-    const url = buildWebSocketUrl(wsValue, matchId, token);
+    const url = buildWebSocketUrl(wsValue, matchId);
 
-    if (!matchId || !token || !url) {
+    if (!matchId || !url) {
       setStatus("Не заполнено подключение");
       return;
     }
@@ -493,8 +505,8 @@
     return state.targetFrame?.status || state.info?.status || "";
   }
 
-  function buildWebSocketUrl(value, matchId, token) {
-    if (!value || !matchId || !token) {
+  function buildWebSocketUrl(value, matchId) {
+    if (!value || !matchId) {
       return null;
     }
 
@@ -510,9 +522,7 @@
     }
 
     if (url.pathname.includes("/ws/matches/") || url.pathname.includes("/matches/")) {
-      if (!url.searchParams.has("token")) {
-        url.searchParams.set("token", token);
-      }
+      url.searchParams.delete("token");
       return url.toString();
     }
 
@@ -522,7 +532,7 @@
       ? `/matches/${encodeURIComponent(matchId)}`
       : `/ws/matches/${encodeURIComponent(matchId)}`;
 
-    return `${base}${matchPath}?token=${encodeURIComponent(token)}`;
+    return `${base}${matchPath}`;
   }
 
   function deriveDefaultWebSocketBase() {
@@ -533,6 +543,30 @@
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     return `${protocol}//${host}`;
+  }
+
+  function sanitizeWebSocketUrl(value) {
+    if (!value) {
+      return "";
+    }
+
+    try {
+      const url = new URL(value);
+      url.searchParams.delete("token");
+      return url.toString();
+    } catch {
+      return value;
+    }
+  }
+
+  function replaceCurrentQuery(params) {
+    if (!window.history?.replaceState) {
+      return;
+    }
+
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.search = params.toString();
+    window.history.replaceState(null, "", cleanUrl.toString());
   }
 
   function setCustomFieldImage(value) {
