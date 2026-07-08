@@ -33,6 +33,7 @@
     targetFrame: null,
     animationStartedAt: 0,
     animationDurationMs: 2800,
+    connectionAttempt: 0,
     webSocketBase: "",
     playerEls: new Map(),
     objectEls: new Map(),
@@ -82,7 +83,7 @@
     }
   }
 
-  function connectFromInputs() {
+  async function connectFromInputs() {
     const matchId = els.matchIdInput.value.trim();
     const wsValue = state.webSocketBase.trim();
     const url = buildWebSocketUrl(wsValue, matchId);
@@ -92,16 +93,34 @@
       return;
     }
 
+    const attemptId = ++state.connectionAttempt;
+    closeCurrentSocket();
+
     const wsBase = normalizeWebSocketBase(wsValue) || wsValue;
     localStorage.setItem("bamjoballLiveWs", wsBase);
     if (wsBase !== wsValue) {
       state.webSocketBase = wsBase;
     }
 
-    openSocket(url);
+    setStatus("Проверка матча");
+    els.connectButton.disabled = true;
+
+    const availability = await checkMatchAvailability(url);
+    if (attemptId !== state.connectionAttempt) {
+      return;
+    }
+
+    if (availability === "not_found") {
+      els.connectButton.disabled = false;
+      setStatus("Матч не найден");
+      setPhase("Не найден");
+      return;
+    }
+
+    openSocket(url, attemptId);
   }
 
-  function openSocket(url) {
+  function openSocket(url, attemptId = state.connectionAttempt) {
     clearTimeout(state.reconnectTimer);
     state.shouldReconnect = true;
 
@@ -135,6 +154,10 @@
     });
 
     socket.addEventListener("close", () => {
+      if (attemptId !== state.connectionAttempt) {
+        return;
+      }
+
       els.connectButton.disabled = false;
       if (!state.shouldReconnect || getStatusCode() === "finished") {
         setStatus(getStatusCode() === "finished" ? "Матч завершен" : "Отключено");
@@ -142,7 +165,7 @@
       }
 
       setStatus("Переподключение");
-      state.reconnectTimer = setTimeout(() => openSocket(url), reconnectDelayMs);
+      state.reconnectTimer = setTimeout(() => openSocket(url, attemptId), reconnectDelayMs);
     });
 
     socket.addEventListener("error", () => {
@@ -153,6 +176,40 @@
   function sendClientMessage(message) {
     if (state.socket && state.socket.readyState === WebSocket.OPEN) {
       state.socket.send(JSON.stringify(message));
+    }
+  }
+
+  function closeCurrentSocket() {
+    clearTimeout(state.reconnectTimer);
+    state.shouldReconnect = false;
+
+    if (state.socket) {
+      state.socket.onclose = null;
+      state.socket.close();
+      state.socket = null;
+    }
+  }
+
+  async function checkMatchAvailability(webSocketUrl) {
+    const snapshotUrl = buildSnapshotUrl(webSocketUrl);
+    if (!snapshotUrl || typeof fetch !== "function") {
+      return "unknown";
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+
+    try {
+      const response = await fetch(snapshotUrl, {
+        cache: "no-store",
+        signal: controller.signal
+      });
+
+      return response.status === 404 ? "not_found" : "ok";
+    } catch {
+      return "unknown";
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -193,6 +250,13 @@
         break;
 
       case "error":
+        if (message.code === "match_not_found") {
+          closeCurrentSocket();
+          setStatus("Матч не найден");
+          setPhase("Не найден");
+          return;
+        }
+
         pushEvent({ tick: "-", kind: "error", text: message.message || message.code || "Ошибка сервера." });
         setStatus("Ошибка сервера");
         break;
@@ -599,6 +663,26 @@
       : `/ws/matches/${encodeURIComponent(matchId)}`;
 
     return `${base}${matchPath}`;
+  }
+
+  function buildSnapshotUrl(webSocketUrl) {
+    try {
+      const url = new URL(webSocketUrl);
+      if (url.protocol === "ws:") {
+        url.protocol = "http:";
+      } else if (url.protocol === "wss:") {
+        url.protocol = "https:";
+      } else {
+        return null;
+      }
+
+      url.pathname = url.pathname.replace(/\/ws\/matches\//i, "/matches/");
+      url.search = "";
+      url.hash = "";
+      return url.toString();
+    } catch {
+      return null;
+    }
   }
 
   function deriveDefaultWebSocketBase() {
