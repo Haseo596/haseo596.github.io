@@ -1,6 +1,6 @@
 (function () {
   const field = { lanes: 3, columns: 7 };
-  const maxEvents = 90;
+  const maxEvents = 36;
   const reconnectDelayMs = 2500;
   const tickAnimationStretch = 1.12;
 
@@ -11,7 +11,6 @@
     tickLabel: document.getElementById("tickLabel"),
     progressBar: document.getElementById("progressBar"),
     matchIdInput: document.getElementById("matchIdInput"),
-    wsInput: document.getElementById("wsInput"),
     connectButton: document.getElementById("connectButton"),
     phaseLabel: document.getElementById("phaseLabel"),
     matchIdLabel: document.getElementById("matchIdLabel"),
@@ -34,6 +33,7 @@
     targetFrame: null,
     animationStartedAt: 0,
     animationDurationMs: 2800,
+    webSocketBase: "",
     playerEls: new Map(),
     objectEls: new Map(),
     events: []
@@ -67,7 +67,7 @@
       replaceCurrentQuery(params);
     }
 
-    els.wsInput.value =
+    state.webSocketBase =
       wsFromLink ||
       localStorage.getItem("bamjoballLiveWs") ||
       deriveDefaultWebSocketBase() ||
@@ -75,16 +75,16 @@
 
     els.connectButton.addEventListener("click", connectFromInputs);
 
-    if (els.matchIdInput.value && els.wsInput.value) {
+    if (els.matchIdInput.value && state.webSocketBase) {
       connectFromInputs();
     } else if (els.matchIdInput.value) {
-      setStatus("Нужен WebSocket URL");
+      setStatus("Нет адреса сервера");
     }
   }
 
   function connectFromInputs() {
     const matchId = els.matchIdInput.value.trim();
-    const wsValue = els.wsInput.value.trim();
+    const wsValue = state.webSocketBase.trim();
     const url = buildWebSocketUrl(wsValue, matchId);
 
     if (!matchId || !url) {
@@ -95,7 +95,7 @@
     const wsBase = normalizeWebSocketBase(wsValue) || wsValue;
     localStorage.setItem("bamjoballLiveWs", wsBase);
     if (wsBase !== wsValue) {
-      els.wsInput.value = wsBase;
+      state.webSocketBase = wsBase;
     }
 
     openSocket(url);
@@ -325,6 +325,7 @@
 
   function renderPlayers(frame) {
     const present = new Set();
+    const layout = buildPlayerLayout(frame.players);
 
     for (const player of frame.players) {
       const key = String(player.id);
@@ -338,8 +339,10 @@
       }
 
       const position = cellToPercent(player.lane, player.column);
-      el.style.left = `${position.x}%`;
-      el.style.top = `${position.y}%`;
+      const offset = layout.get(key) || { x: 0, y: 0, z: 0 };
+      el.style.left = `calc(${position.x}% + ${offset.x}px)`;
+      el.style.top = `calc(${position.y}% + ${offset.y}px)`;
+      el.style.zIndex = String(player.hasBall ? 9 : 4 + offset.z);
       el.style.setProperty("--team-color", teamColor(player.team));
       el.classList.toggle("hasBall", player.hasBall);
       el.querySelector(".playerIcon").style.backgroundImage = `url("${heroImage(player.hero)}")`;
@@ -352,6 +355,47 @@
         state.playerEls.delete(key);
       }
     }
+  }
+
+  function buildPlayerLayout(players) {
+    const groups = new Map();
+    for (const player of players) {
+      const key = `${Math.round(player.lane)}:${Math.round(player.column)}`;
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+
+      groups.get(key).push(player);
+    }
+
+    const layout = new Map();
+    for (const group of groups.values()) {
+      if (group.length === 1) {
+        layout.set(String(group[0].id), { x: 0, y: 0, z: 0 });
+        continue;
+      }
+
+      const sorted = [...group].sort((a, b) => {
+        if (a.hasBall !== b.hasBall) {
+          return a.hasBall ? 1 : -1;
+        }
+
+        return String(a.id).localeCompare(String(b.id));
+      });
+      const radius = Math.min(36, 18 + sorted.length * 4);
+      const startAngle = sorted.length === 2 ? Math.PI : -Math.PI / 2;
+
+      sorted.forEach((player, index) => {
+        const angle = startAngle + (index * Math.PI * 2) / sorted.length;
+        layout.set(String(player.id), {
+          x: Math.round(Math.cos(angle) * radius),
+          y: Math.round(Math.sin(angle) * radius),
+          z: index
+        });
+      });
+    }
+
+    return layout;
   }
 
   function createPlayerElement(player) {
