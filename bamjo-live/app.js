@@ -552,7 +552,7 @@
 
   function queueFrameEvents(frame, sourceType) {
     for (const event of frame.events) {
-      const delay = eventDelayMs(event, sourceType);
+      const delay = eventDelayMs(event, sourceType, frame);
       const timer = setTimeout(() => {
         state.pendingTimers.delete(timer);
         if (shouldSpawnEffect(event)) {
@@ -567,9 +567,13 @@
     }
   }
 
-  function eventDelayMs(event, sourceType) {
+  function eventDelayMs(event, sourceType, frame) {
     if (sourceType === "snapshot") {
       return 0;
+    }
+
+    if (event.kind === "kickoff" && frame.events.some((item) => item.kind === "goal")) {
+      return Math.round(state.animationDurationMs * 0.94);
     }
 
     if (isResolutionEvent(event)) {
@@ -580,6 +584,10 @@
   }
 
   function isResolutionEvent(event) {
+    if (event.kind === "pass" && hasTag(event, "pass_completed")) {
+      return true;
+    }
+
     return event.kind === "interception" ||
       event.kind === "tackle" ||
       event.kind === "save" ||
@@ -758,6 +766,10 @@
       event.hero || "-",
       event.text || "-"
     ].join("|");
+  }
+
+  function hasTag(event, tag) {
+    return (event.tags || []).some((value) => value.toLowerCase() === tag);
   }
 
   function updateScore(score) {
