@@ -2,7 +2,7 @@
   const field = { lanes: 3, columns: 7 };
   const maxEvents = 36;
   const reconnectDelayMs = 2500;
-  const tickAnimationStretch = 1.12;
+  const tickAnimationStretch = 1;
 
   const els = {
     matchStatus: document.getElementById("matchStatus"),
@@ -18,6 +18,7 @@
     pitch: document.getElementById("pitch"),
     playersLayer: document.getElementById("playersLayer"),
     objectsLayer: document.getElementById("objectsLayer"),
+    effectsLayer: document.getElementById("effectsLayer"),
     ball: document.getElementById("ball"),
     redRoster: document.getElementById("redRoster"),
     blueRoster: document.getElementById("blueRoster"),
@@ -37,6 +38,8 @@
     webSocketBase: "",
     playerEls: new Map(),
     objectEls: new Map(),
+    eventKeys: new Set(),
+    effectKeys: new Set(),
     events: []
   };
 
@@ -95,6 +98,7 @@
 
     const attemptId = ++state.connectionAttempt;
     closeCurrentSocket();
+    resetMatchView();
 
     const wsBase = normalizeWebSocketBase(wsValue) || wsValue;
     localStorage.setItem("bamjoballLiveWs", wsBase);
@@ -190,6 +194,17 @@
     }
   }
 
+  function resetMatchView() {
+    state.info = null;
+    state.previousFrame = null;
+    state.targetFrame = null;
+    state.events = [];
+    state.eventKeys.clear();
+    state.effectKeys.clear();
+    els.events.replaceChildren();
+    els.effectsLayer?.replaceChildren();
+  }
+
   async function checkMatchAvailability(webSocketUrl) {
     const snapshotUrl = buildSnapshotUrl(webSocketUrl);
     if (!snapshotUrl || typeof fetch !== "function") {
@@ -282,6 +297,7 @@
     updateScore(frame.score);
     updateTick(frame.tick);
     updateRosters(frame.players);
+    spawnFrameEffects(frame);
 
     const visibleEvents = frame.events.filter((event) => event.visible !== false);
     for (const event of visibleEvents) {
@@ -329,6 +345,9 @@
         actor: event.actor || null,
         hero: event.hero || null,
         text: String(event.text || ""),
+        lane: Number.isFinite(Number(event.lane)) ? Number(event.lane) : null,
+        column: Number.isFinite(Number(event.column)) ? Number(event.column) : null,
+        tags: (event.tags || []).map((tag) => String(tag)),
         visible: event.visible !== false
       }))
     };
@@ -337,6 +356,7 @@
   function render(now) {
     const frame = getInterpolatedFrame(now);
     if (frame) {
+      updateTick(frame.visualTick ?? frame.tick);
       renderPlayers(frame);
       renderObjects(frame);
       renderBall(frame);
@@ -365,10 +385,14 @@
       };
     });
 
+    const visualTick = lerp(state.previousFrame.tick, state.targetFrame.tick, t);
+
     return {
       ...state.targetFrame,
+      tick: visualTick,
+      visualTick,
       players,
-      ball: interpolateBall(state.previousFrame, state.targetFrame, t)
+      ball: interpolateBall(state.previousFrame, state.targetFrame, players, t)
     };
   }
 
@@ -380,10 +404,39 @@
     );
   }
 
-  function interpolateBall(previousFrame, targetFrame, t) {
+  function interpolateBall(previousFrame, targetFrame, visualPlayers, t) {
     const previousBall = previousFrame.ball || targetFrame.ball;
+    const previousHolderId = previousBall.holderPlayerId;
+    const targetHolderId = targetFrame.ball.holderPlayerId;
+
+    if (targetHolderId !== null &&
+        previousHolderId !== null &&
+        String(previousHolderId) === String(targetHolderId)) {
+      const holder = findPlayer(visualPlayers, targetHolderId);
+      if (holder) {
+        return {
+          ...targetFrame.ball,
+          lane: holder.lane,
+          column: holder.column
+        };
+      }
+    }
+
+    const catching = targetHolderId !== null && String(previousHolderId) !== String(targetHolderId);
+    if (catching && t >= 0.88) {
+      const holder = findPlayer(visualPlayers, targetHolderId);
+      if (holder) {
+        return {
+          ...targetFrame.ball,
+          lane: holder.lane,
+          column: holder.column
+        };
+      }
+    }
+
     return {
       ...targetFrame.ball,
+      holderPlayerId: catching ? null : targetFrame.ball.holderPlayerId,
       lane: lerp(previousBall.lane, targetFrame.ball.lane, t),
       column: lerp(previousBall.column, targetFrame.ball.column, t)
     };
@@ -423,13 +476,7 @@
   }
 
   function isBallAtPlayer(ball, player) {
-    if (!ball || !player.hasBall || String(ball.holderPlayerId) !== String(player.id)) {
-      return false;
-    }
-
-    const laneDelta = ball.lane - player.lane;
-    const columnDelta = ball.column - player.column;
-    return Math.hypot(laneDelta, columnDelta) <= 0.16;
+    return Boolean(ball && ball.holderPlayerId !== null && String(ball.holderPlayerId) === String(player.id));
   }
 
   function createPlayerElement(player) {
@@ -483,6 +530,96 @@
     els.ball.style.setProperty("--ball-y", `${position.y}%`);
   }
 
+  function spawnFrameEffects(frame) {
+    for (const event of frame.events) {
+      if (!shouldSpawnEffect(event)) {
+        continue;
+      }
+
+      const key = eventKey(event);
+      if (state.effectKeys.has(key)) {
+        continue;
+      }
+
+      state.effectKeys.add(key);
+      trimSet(state.effectKeys, 160);
+      spawnEffect(event, frame);
+    }
+  }
+
+  function shouldSpawnEffect(event) {
+    return event.kind === "ability" ||
+      event.kind === "object_created" ||
+      event.kind === "shot" ||
+      event.kind === "pass" ||
+      event.kind === "goal" ||
+      event.kind === "save" ||
+      event.kind === "interception" ||
+      event.kind === "tackle" ||
+      event.kind === "repick";
+  }
+
+  function spawnEffect(event, frame) {
+    if (!els.effectsLayer) {
+      return;
+    }
+
+    const point = effectPoint(event, frame);
+    const position = cellToPercent(point.lane, point.column);
+    const el = document.createElement("div");
+    el.className = `effect ${effectClass(event)}`;
+    el.style.left = `${position.x}%`;
+    el.style.top = `${position.y}%`;
+    el.style.setProperty("--team-color", event.team ? teamColor(event.team) : "var(--gold)");
+    els.effectsLayer.appendChild(el);
+    setTimeout(() => el.remove(), effectDuration(event));
+  }
+
+  function effectPoint(event, frame) {
+    if (event.lane !== null && event.column !== null) {
+      return { lane: event.lane, column: event.column };
+    }
+
+    const actor = frame.players.find((player) => event.actor && player.nickname === event.actor);
+    if (actor) {
+      return { lane: actor.lane, column: actor.column };
+    }
+
+    return { lane: frame.ball.lane, column: frame.ball.column };
+  }
+
+  function effectClass(event) {
+    const hero = String(event.hero || "").toLowerCase();
+    const tags = new Set((event.tags || []).map((tag) => tag.toLowerCase()));
+    const parts = [];
+
+    if (event.kind) {
+      parts.push(`kind-${event.kind}`);
+    }
+    if (hero) {
+      parts.push(`hero-${hero}`);
+    }
+    for (const tag of ["shot", "pass", "power", "curve", "slamshot", "hook", "portal", "totem", "blackhole", "goal", "save", "dash", "blink", "pull", "swap", "water", "aoe", "repick"]) {
+      if (tags.has(tag)) {
+        parts.push(`tag-${tag}`);
+      }
+    }
+
+    return parts.join(" ");
+  }
+
+  function effectDuration(event) {
+    if (event.kind === "goal") {
+      return 1800;
+    }
+
+    if (event.kind === "object_created") {
+      return 1300;
+    }
+
+    return 1050;
+  }
+
   function updateRosters(players) {
     els.redRoster.replaceChildren(...players.filter((player) => player.team === "red").map(createRosterCard));
     els.blueRoster.replaceChildren(...players.filter((player) => player.team === "blue").map(createRosterCard));
@@ -518,6 +655,14 @@
       return;
     }
 
+    const key = eventKey(event);
+    if (state.eventKeys.has(key)) {
+      return;
+    }
+
+    state.eventKeys.add(key);
+    trimSet(state.eventKeys, maxEvents * 4);
+
     state.events.unshift(event);
     if (state.events.length > maxEvents) {
       state.events.length = maxEvents;
@@ -541,6 +686,17 @@
 
     el.append(meta, text);
     return el;
+  }
+
+  function eventKey(event) {
+    return [
+      event.tick ?? "-",
+      event.kind || "-",
+      event.team || "-",
+      event.actor || "-",
+      event.hero || "-",
+      event.text || "-"
+    ].join("|");
   }
 
   function updateScore(score) {
@@ -795,6 +951,20 @@
     }
 
     return typeof value === "number" ? value : String(value);
+  }
+
+  function findPlayer(players, id) {
+    if (id === null || id === undefined) {
+      return null;
+    }
+
+    return players.find((player) => String(player.id) === String(id)) || null;
+  }
+
+  function trimSet(set, maxSize) {
+    while (set.size > maxSize) {
+      set.delete(set.values().next().value);
+    }
   }
 
   function lerp(a, b, t) {

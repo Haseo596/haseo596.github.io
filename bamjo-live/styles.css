@@ -348,8 +348,13 @@ h1 {
   pointer-events: none;
 }
 
+.effectsLayer {
+  z-index: 12;
+}
+
 .player,
 .object,
+.effect,
 .ball::before {
   position: absolute;
 }
@@ -451,6 +456,154 @@ h1 {
   border: 3px solid #9d8df1;
   background: radial-gradient(circle, #050507 26%, #402b77 56%, rgba(157, 141, 241, 0.18));
   animation: spin 2.4s linear infinite;
+}
+
+.effect {
+  width: clamp(46px, 6.8vw, 92px);
+  aspect-ratio: 1;
+  z-index: 12;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid var(--team-color, var(--gold));
+  opacity: 0;
+  mix-blend-mode: screen;
+  animation: effect-pop 1050ms ease-out forwards;
+}
+
+.effect::before,
+.effect::after {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  border-radius: inherit;
+  border: 2px solid currentColor;
+}
+
+.effect::before {
+  color: var(--team-color, var(--gold));
+  box-shadow: 0 0 22px currentColor;
+}
+
+.effect::after {
+  inset: 36%;
+  background: currentColor;
+  color: var(--team-color, var(--gold));
+  filter: blur(2px);
+}
+
+.effect.kind-shot,
+.effect.tag-shot,
+.effect.tag-slamshot,
+.effect.hero-ogre,
+.effect.hero-angel {
+  color: #ffd86b;
+  border-color: #ffd86b;
+  animation-name: effect-kick;
+}
+
+.effect.kind-pass,
+.effect.tag-pass,
+.effect.hero-warden {
+  color: #f4f0d0;
+  border-radius: 42% 58% 58% 42%;
+}
+
+.effect.kind-goal {
+  width: clamp(74px, 10vw, 138px);
+  color: #fff0a3;
+  border-color: #fff0a3;
+  animation-duration: 1800ms;
+  animation-name: effect-goal;
+}
+
+.effect.kind-save,
+.effect.kind-interception,
+.effect.kind-tackle {
+  color: #ffffff;
+  border-style: dashed;
+}
+
+.effect.hero-shaman,
+.effect.hero-dh,
+.effect.tag-dash {
+  color: #eec85f;
+  border-radius: 34% 66% 34% 66%;
+}
+
+.effect.hero-shadow,
+.effect.tag-blink,
+.effect.hero-swap,
+.effect.tag-swap {
+  color: #b78cff;
+  border-style: dashed;
+}
+
+.effect.hero-water,
+.effect.tag-water {
+  color: #67d9ff;
+  border-radius: 50% 45% 58% 42%;
+}
+
+.effect.hero-tree,
+.effect.tag-aoe,
+.effect.tag-slamshot {
+  color: #8de36f;
+  border-style: double;
+}
+
+.effect.hero-gohor {
+  color: #9df58e;
+}
+
+.effect.hero-wisp,
+.effect.tag-possess {
+  color: #d8f7ff;
+  border-style: dotted;
+}
+
+.effect.hero-golem,
+.effect.tag-curve {
+  color: #f0c987;
+  border-radius: 50% 22% 50% 22%;
+}
+
+.effect.hero-hook,
+.effect.tag-hook {
+  width: clamp(70px, 9vw, 120px);
+  height: clamp(20px, 2.5vw, 34px);
+  aspect-ratio: auto;
+  color: #d6d1bd;
+  border-radius: 999px;
+}
+
+.effect.hero-tauren,
+.effect.tag-totem {
+  color: #dfc166;
+  border-radius: 18%;
+}
+
+.effect.hero-satyr,
+.effect.tag-portal {
+  color: #65e6d8;
+  border-style: double;
+  animation-name: effect-portal;
+}
+
+.effect.hero-blackhole,
+.effect.tag-blackhole {
+  color: #8f79ff;
+  border-color: #8f79ff;
+  background: radial-gradient(circle, #050507 0 22%, rgba(82, 50, 143, 0.68) 45%, transparent 70%);
+  animation-name: effect-blackhole;
+}
+
+.effect.hero-ninja {
+  color: #ffffff;
+  border-radius: 50% 50% 18% 18%;
+}
+
+.effect.hero-lizard {
+  color: #7fff7b;
 }
 
 .sidePanel {
@@ -569,6 +722,76 @@ h1 {
 @keyframes spin {
   to {
     rotate: 360deg;
+  }
+}
+
+@keyframes effect-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.35);
+  }
+  18% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.45);
+  }
+}
+
+@keyframes effect-kick {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.28) rotate(-12deg);
+  }
+  16% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.65) rotate(16deg);
+  }
+}
+
+@keyframes effect-goal {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.25);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.15);
+  }
+}
+
+@keyframes effect-portal {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4) rotate(0deg);
+  }
+  22% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.35) rotate(220deg);
+  }
+}
+
+@keyframes effect-blackhole {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.5) rotate(0deg);
+  }
+  18% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.25) rotate(260deg);
   }
 }
 
