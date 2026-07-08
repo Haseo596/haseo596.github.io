@@ -169,6 +169,7 @@
         state.animationDurationMs = getTickAnimationDuration();
         els.matchIdLabel.textContent = message.matchId || "-";
         setPhase(message.status);
+        updateTick(state.targetFrame?.tick || 0);
         break;
 
       case "snapshot":
@@ -184,6 +185,7 @@
         setStatus("Матч завершен");
         state.shouldReconnect = false;
         updateScore(message.score);
+        updateTick(message.tick);
         break;
 
       case "pong":
@@ -487,9 +489,33 @@
   }
 
   function updateTick(tick) {
-    const total = state.info?.totalTicks || 64;
-    els.tickLabel.textContent = `${tick} / ${total}`;
-    els.progressBar.style.width = `${clamp((tick / total) * 100, 0, 100)}%`;
+    const totalTicks = state.info?.totalTicks || 64;
+    const durationMs = getMatchDurationMs();
+    const elapsedMs = totalTicks <= 0
+      ? 0
+      : durationMs * clamp(Number(tick || 0) / totalTicks, 0, 1);
+
+    els.tickLabel.textContent = `${formatMatchTime(elapsedMs)} / ${formatMatchTime(durationMs)}`;
+    const progress = totalTicks <= 0 ? 0 : (Number(tick || 0) / totalTicks) * 100;
+    els.progressBar.style.width = `${clamp(progress, 0, 100)}%`;
+  }
+
+  function getMatchDurationMs() {
+    const explicitDuration = Number(state.info?.durationMs || 0);
+    if (explicitDuration > 0) {
+      return explicitDuration;
+    }
+
+    const totalTicks = Number(state.info?.totalTicks || 64);
+    const tickDurationMs = Number(state.info?.tickDurationMs || state.animationDurationMs || 2800);
+    return Math.max(1, totalTicks * tickDurationMs);
+  }
+
+  function formatMatchTime(ms) {
+    const totalSeconds = Math.max(0, Math.floor(Number(ms || 0) / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
   }
 
   function updateServerTime(value) {
