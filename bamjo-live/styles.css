@@ -363,20 +363,6 @@ h1 {
   transition: filter 160ms ease;
 }
 
-.player.hasBall {
-  filter: drop-shadow(0 0 6px rgba(244, 201, 93, 0.42));
-}
-
-.player.hasBall::after {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  border: 2px solid var(--gold);
-  border-radius: 8px;
-  box-shadow: 0 0 0 1px rgba(16, 19, 21, 0.82), 0 0 10px rgba(244, 201, 93, 0.42);
-  pointer-events: none;
-}
-
 .playerIcon {
   width: clamp(38px, 4.6vw, 54px);
   aspect-ratio: 1;
@@ -387,14 +373,11 @@ h1 {
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.32);
 }
 
-.player.hasBall .playerIcon {
-  filter: saturate(1.15) brightness(1.08);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.38);
-}
-
 .player.hasBall .playerLabel {
+  border-color: var(--gold);
   color: #101315;
   background: linear-gradient(180deg, #ffe188, var(--gold));
+  box-shadow: 0 0 0 2px rgba(244, 201, 93, 0.44), 0 5px 12px rgba(0, 0, 0, 0.34);
   text-shadow: none;
 }
 
@@ -420,7 +403,7 @@ h1 {
 }
 
 .ball {
-  z-index: 6;
+  z-index: 20;
 }
 
 .ball::before {

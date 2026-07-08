@@ -341,7 +341,7 @@
       const hasControlledBall = isBallAtPlayer(frame.ball, player);
       el.style.left = `${position.x}%`;
       el.style.top = `${position.y}%`;
-      el.style.zIndex = String(hasControlledBall ? 9 : 4);
+      el.style.zIndex = String(hasControlledBall ? 5 : 4);
       el.style.setProperty("--team-color", teamColor(player.team));
       el.classList.toggle("hasBall", hasControlledBall);
       el.querySelector(".playerIcon").style.backgroundImage = `url("${heroImage(player.hero)}")`;
