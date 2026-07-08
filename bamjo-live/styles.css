@@ -364,16 +364,16 @@ h1 {
 }
 
 .player.hasBall {
-  filter: drop-shadow(0 0 10px rgba(244, 201, 93, 0.52));
+  filter: drop-shadow(0 0 6px rgba(244, 201, 93, 0.42));
 }
 
 .player.hasBall::after {
   content: "";
   position: absolute;
-  inset: -6px -5px -6px -5px;
-  border: 3px solid var(--gold);
-  border-radius: 10px;
-  box-shadow: 0 0 0 2px rgba(16, 19, 21, 0.78), 0 0 18px rgba(244, 201, 93, 0.52);
+  inset: -2px;
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px rgba(16, 19, 21, 0.82), 0 0 10px rgba(244, 201, 93, 0.42);
   pointer-events: none;
 }
 

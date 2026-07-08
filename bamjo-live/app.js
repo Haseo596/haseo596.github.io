@@ -325,7 +325,6 @@
 
   function renderPlayers(frame) {
     const present = new Set();
-    const layout = buildPlayerLayout(frame.players);
 
     for (const player of frame.players) {
       const key = String(player.id);
@@ -339,12 +338,12 @@
       }
 
       const position = cellToPercent(player.lane, player.column);
-      const offset = layout.get(key) || { x: 0, y: 0, z: 0 };
-      el.style.left = `calc(${position.x}% + ${offset.x}px)`;
-      el.style.top = `calc(${position.y}% + ${offset.y}px)`;
-      el.style.zIndex = String(player.hasBall ? 9 : 4 + offset.z);
+      const hasControlledBall = isBallAtPlayer(frame.ball, player);
+      el.style.left = `${position.x}%`;
+      el.style.top = `${position.y}%`;
+      el.style.zIndex = String(hasControlledBall ? 9 : 4);
       el.style.setProperty("--team-color", teamColor(player.team));
-      el.classList.toggle("hasBall", player.hasBall);
+      el.classList.toggle("hasBall", hasControlledBall);
       el.querySelector(".playerIcon").style.backgroundImage = `url("${heroImage(player.hero)}")`;
       el.querySelector(".playerLabel").textContent = player.nickname;
     }
@@ -357,45 +356,14 @@
     }
   }
 
-  function buildPlayerLayout(players) {
-    const groups = new Map();
-    for (const player of players) {
-      const key = `${Math.round(player.lane)}:${Math.round(player.column)}`;
-      if (!groups.has(key)) {
-        groups.set(key, []);
-      }
-
-      groups.get(key).push(player);
+  function isBallAtPlayer(ball, player) {
+    if (!ball || !player.hasBall || String(ball.holderPlayerId) !== String(player.id)) {
+      return false;
     }
 
-    const layout = new Map();
-    for (const group of groups.values()) {
-      if (group.length === 1) {
-        layout.set(String(group[0].id), { x: 0, y: 0, z: 0 });
-        continue;
-      }
-
-      const sorted = [...group].sort((a, b) => {
-        if (a.hasBall !== b.hasBall) {
-          return a.hasBall ? 1 : -1;
-        }
-
-        return String(a.id).localeCompare(String(b.id));
-      });
-      const radius = Math.min(36, 18 + sorted.length * 4);
-      const startAngle = sorted.length === 2 ? Math.PI : -Math.PI / 2;
-
-      sorted.forEach((player, index) => {
-        const angle = startAngle + (index * Math.PI * 2) / sorted.length;
-        layout.set(String(player.id), {
-          x: Math.round(Math.cos(angle) * radius),
-          y: Math.round(Math.sin(angle) * radius),
-          z: index
-        });
-      });
-    }
-
-    return layout;
+    const laneDelta = ball.lane - player.lane;
+    const columnDelta = ball.column - player.column;
+    return Math.hypot(laneDelta, columnDelta) <= 0.16;
   }
 
   function createPlayerElement(player) {
