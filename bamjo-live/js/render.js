@@ -21,7 +21,7 @@ export function renderFrame(now) {
     ? getTimelineFrame(playbackTimeMs)
     : getInterpolatedFrame(now);
   if (frame) {
-    const visualFrame = state.usesTimeline ? continuousTimelineFrame(frame, playbackTimeMs, now) : frame;
+    const visualFrame = state.usesTimeline ? continuousTimelineFrame(frame) : frame;
     updateTick(frame.visualTick ?? frame.tick);
     updateScore(frame.score);
     renderPlayers(visualFrame);
@@ -81,9 +81,7 @@ export function getTimelineFrame(playbackTimeMs) {
   const nextTime = frameTime(next);
   const span = Math.max(1, nextTime - previousTime);
   const t = previous === next ? 0 : clamp((playbackTimeMs - previousTime) / span, 0, 1);
-  const players = state.playerMotions.length > 0
-    ? timelineMotionPlayers(previous.players, next.players, previousTime, playbackTimeMs, t)
-    : interpolatePlayers(previous.players, next.players, t);
+  const players = timelineMotionPlayers(previous.players, next.players, previousTime, playbackTimeMs, t);
 
   const visualTick = lerp(previous.tick, next.tick, t);
 
@@ -241,36 +239,86 @@ function interpolateBall(previousFrame, targetFrame, visualPlayers, t, now) {
   };
 }
 
-function continuousTimelineFrame(frame, playbackTimeMs, now) {
-  const players = state.playerMotions.length > 0
-    ? ambientPlayers(frame.players, playbackTimeMs, now)
-    : continuousPlayers(frame.players, now);
+function continuousTimelineFrame(frame) {
   return {
     ...frame,
-    players,
-    ball: attachHeldBall(frame.ball, players)
+    ball: attachHeldBall(frame.ball, frame.players)
   };
 }
 
 function timelineMotionPlayers(previousPlayers, targetPlayers, previousTimeMs, playbackTimeMs, fallbackT) {
-  const fallbackPlayers = interpolatePlayers(previousPlayers, targetPlayers, fallbackT);
+  const fallbackPlayers = interpolatePlayersLinear(previousPlayers, targetPlayers, fallbackT);
   const fallbackMap = new Map(fallbackPlayers.map((player) => [String(player.id), player]));
 
   return targetPlayers.map((player) => {
     const fallback = fallbackMap.get(String(player.id)) || player;
-    const motion = playerMotionAt(player.id, previousTimeMs, playbackTimeMs);
-    if (!motion) {
+    const sampleTimeMs = playbackTimeMs + playerSampleOffsetMs(player);
+    const sampled = sampleTimelinePlayer(player.id, previousTimeMs, sampleTimeMs);
+    if (!sampled) {
       return fallback;
     }
 
-    const position = motionPosition(motion, playbackTimeMs);
     const offset = playerCellOffset(fallback);
     return {
       ...fallback,
-      lane: clamp(position.lane + offset.lane, -0.22, 2.22),
-      column: clamp(position.column + offset.column, -0.22, 6.22)
+      lane: clamp(sampled.lane + offset.lane, -0.22, 2.22),
+      column: clamp(sampled.column + offset.column, -0.22, 6.22)
     };
   });
+}
+
+function sampleTimelinePlayer(playerId, previousTimeMs, sampleTimeMs) {
+  const id = String(playerId);
+  const frames = state.timelineFrames;
+  if (frames.length < 2) {
+    return null;
+  }
+
+  let previous = null;
+  let next = null;
+  for (const frame of frames) {
+    const timeMs = frameTime(frame);
+    if (timeMs <= sampleTimeMs) {
+      previous = frame;
+      continue;
+    }
+
+    next = frame;
+    break;
+  }
+
+  previous ??= frames[0];
+  next ??= frames[frames.length - 1];
+  if (frameTime(next) < previousTimeMs) {
+    return null;
+  }
+
+  const previousPlayer = findPlayer(previous.players, id);
+  const nextPlayer = findPlayer(next.players, id) || previousPlayer;
+  if (!previousPlayer || !nextPlayer) {
+    return null;
+  }
+
+  const fromMs = frameTime(previous);
+  const toMs = frameTime(next);
+  if (toMs <= fromMs) {
+    return { lane: nextPlayer.lane, column: nextPlayer.column };
+  }
+
+  const t = clamp((sampleTimeMs - fromMs) / (toMs - fromMs), 0, 1);
+  return {
+    lane: lerp(previousPlayer.lane, nextPlayer.lane, t),
+    column: lerp(previousPlayer.column, nextPlayer.column, t)
+  };
+}
+
+function playerSampleOffsetMs(player) {
+  if (player.hasBall) {
+    return 0;
+  }
+
+  const seed = hashId(player.id);
+  return ((seed % 121) - 60) * 2;
 }
 
 function playerMotionAt(playerId, previousTimeMs, playbackTimeMs) {
@@ -315,22 +363,6 @@ function motionPosition(motion, playbackTimeMs) {
   }
 
   return { lane, column };
-}
-
-function ambientPlayers(players, playbackTimeMs, now) {
-  const seconds = now / 1000;
-  return players.map((player) => {
-    const activeMotion = playerMotionAt(player.id, playbackTimeMs - 1, playbackTimeMs);
-    const drift = activeMotion && activeMotion.toMs >= playbackTimeMs
-      ? { lane: 0, column: 0 }
-      : idleDrift(player, seconds, 0);
-
-    return {
-      ...player,
-      lane: clamp(player.lane + drift.lane, -0.22, 2.22),
-      column: clamp(player.column + drift.column, -0.22, 6.22)
-    };
-  });
 }
 
 function continuousPlayers(players, now) {
@@ -446,6 +478,20 @@ function interpolatePlayers(previousPlayers, targetPlayers, t) {
   return targetPlayers.map((player) => {
     const previous = previousMap.get(String(player.id)) || player;
     return playerVisualPosition(previous, player, eased, t);
+  });
+}
+
+function interpolatePlayersLinear(previousPlayers, targetPlayers, t) {
+  const previousMap = new Map(previousPlayers.map((player) => [String(player.id), player]));
+
+  return targetPlayers.map((player) => {
+    const previous = previousMap.get(String(player.id)) || player;
+    const offset = playerCellOffset(player);
+    return {
+      ...player,
+      lane: clamp(lerp(previous.lane, player.lane, t) + offset.lane, -0.18, 2.18),
+      column: clamp(lerp(previous.column, player.column, t) + offset.column, -0.18, 6.18)
+    };
   });
 }
 

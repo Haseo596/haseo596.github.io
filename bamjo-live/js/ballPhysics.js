@@ -26,6 +26,7 @@ export function resetBallPhysicsFromFrame(frame) {
   }
 
   state.ballPhysics = {
+    timeline: false,
     mode: frame.ball.holderPlayerId !== null ? "attached" : "stopped",
     holderPlayerId: frame.ball.holderPlayerId,
     lane: frame.ball.lane,
@@ -36,6 +37,11 @@ export function resetBallPhysicsFromFrame(frame) {
 export function projectBallPhysics(frame, visualPlayers, playbackTimeMs) {
   if (!state.usesTimeline) {
     return projectFallbackState(frame, visualPlayers);
+  }
+
+  const projectedTimeline = projectTimelineState(frame, visualPlayers, playbackTimeMs);
+  if (projectedTimeline) {
+    return projectedTimeline;
   }
 
   const eventIndex = findPhysicsEventIndex(playbackTimeMs);
@@ -54,6 +60,190 @@ export function projectBallPhysics(frame, visualPlayers, playbackTimeMs) {
     ...frame.ball,
     ...projected
   };
+}
+
+function projectTimelineState(frame, visualPlayers, playbackTimeMs) {
+  if (!frame?.ball || !Number.isFinite(playbackTimeMs)) {
+    return null;
+  }
+
+  let physics = state.ballPhysics;
+  if (!physics || physics.timeline !== true || playbackTimeMs < physics.playbackTimeMs - 120) {
+    physics = initializeTimelineState(frame, visualPlayers, playbackTimeMs);
+    state.ballPhysics = physics;
+  }
+
+  const fromMs = physics.playbackTimeMs;
+  const dueEvents = state.physicsEvents.filter((event) =>
+    event.timeMs > fromMs &&
+    event.timeMs <= playbackTimeMs);
+
+  for (const event of dueEvents) {
+    integrateTimelineState(physics, visualPlayers, event.timeMs);
+    applyTimelineEvent(physics, event);
+  }
+
+  integrateTimelineState(physics, visualPlayers, playbackTimeMs);
+
+  return {
+    ...frame.ball,
+    holderPlayerId: physics.holderPlayerId ?? null,
+    lane: physics.lane,
+    column: physics.column
+  };
+}
+
+function initializeTimelineState(frame, visualPlayers, playbackTimeMs) {
+  const eventIndex = findPhysicsEventIndex(playbackTimeMs);
+  const event = eventIndex >= 0 ? state.physicsEvents[eventIndex] : null;
+  const previous = eventIndex > 0 ? state.physicsEvents[eventIndex - 1] : null;
+  const projected = event
+    ? projectFromEvent(event, previous, visualPlayers, playbackTimeMs)
+    : null;
+  const ball = projected || frame.ball;
+
+  const state = {
+    timeline: true,
+    mode: ball.holderPlayerId !== null && ball.holderPlayerId !== undefined ? "attached" : "stopped",
+    playbackTimeMs,
+    holderPlayerId: ball.holderPlayerId ?? null,
+    lane: finiteNumber(ball.lane, frame.ball.lane),
+    column: finiteNumber(ball.column, frame.ball.column),
+    velocityLane: 0,
+    velocityColumn: 0,
+    friction: 0,
+    attachStartedAtMs: playbackTimeMs,
+    attachFromLane: finiteNumber(ball.lane, frame.ball.lane),
+    attachFromColumn: finiteNumber(ball.column, frame.ball.column),
+    stopStartedAtMs: playbackTimeMs,
+    stopFromLane: finiteNumber(ball.lane, frame.ball.lane),
+    stopFromColumn: finiteNumber(ball.column, frame.ball.column),
+    stopTargetLane: finiteNumber(ball.lane, frame.ball.lane),
+    stopTargetColumn: finiteNumber(ball.column, frame.ball.column)
+  };
+
+  if (event?.kind === "ball_impulse") {
+    const friction = Math.max(0, event.friction * 0.35);
+    const elapsedSeconds = Math.max(0, (playbackTimeMs - event.timeMs) / 1000);
+    const speed = Math.hypot(event.velocityLane, event.velocityColumn);
+    const nextSpeed = friction > 0
+      ? Math.max(0, speed - friction * elapsedSeconds)
+      : speed;
+
+    if (nextSpeed > 0.01 && speed > 0) {
+      state.mode = "impulse";
+      state.holderPlayerId = null;
+      state.velocityLane = (event.velocityLane / speed) * nextSpeed;
+      state.velocityColumn = (event.velocityColumn / speed) * nextSpeed;
+      state.friction = friction;
+    }
+  }
+
+  return state;
+}
+
+function integrateTimelineState(physics, visualPlayers, toMs) {
+  const elapsedMs = Math.max(0, toMs - physics.playbackTimeMs);
+
+  if (physics.mode === "attached") {
+    const holder = findPlayer(visualPlayers, physics.holderPlayerId);
+    if (holder) {
+      physics.lane = holder.lane;
+      physics.column = holder.column;
+    }
+  } else if (physics.mode === "attaching") {
+    const holder = findPlayer(visualPlayers, physics.holderPlayerId);
+    const target = holder
+      ? { lane: holder.lane, column: holder.column }
+      : { lane: physics.lane, column: physics.column };
+    const t = clamp((toMs - physics.attachStartedAtMs) / attachTransitionMs, 0, 1);
+    physics.lane = lerpNumber(physics.attachFromLane, target.lane, t);
+    physics.column = lerpNumber(physics.attachFromColumn, target.column, t);
+    if (t >= 1) {
+      physics.mode = "attached";
+    }
+  } else if (physics.mode === "stopping") {
+    const t = clamp((toMs - physics.stopStartedAtMs) / stopTransitionMs, 0, 1);
+    physics.lane = lerpNumber(physics.stopFromLane, physics.stopTargetLane, t);
+    physics.column = lerpNumber(physics.stopFromColumn, physics.stopTargetColumn, t);
+    if (t >= 1) {
+      physics.mode = "stopped";
+    }
+  } else if (physics.mode === "impulse" && elapsedMs > 0) {
+    const elapsedSeconds = elapsedMs / 1000;
+    const speed = Math.hypot(physics.velocityLane, physics.velocityColumn);
+    if (speed > 0) {
+      const friction = Math.max(0, physics.friction || 0);
+      const distance = friction > 0
+        ? Math.max(0, speed * elapsedSeconds - 0.5 * friction * elapsedSeconds * elapsedSeconds)
+        : speed * elapsedSeconds;
+      const directionLane = physics.velocityLane / speed;
+      const directionColumn = physics.velocityColumn / speed;
+
+      physics.lane += directionLane * distance;
+      physics.column += directionColumn * distance;
+
+      const nextSpeed = friction > 0
+        ? Math.max(0, speed - friction * elapsedSeconds)
+        : speed;
+      physics.velocityLane = directionLane * nextSpeed;
+      physics.velocityColumn = directionColumn * nextSpeed;
+      if (nextSpeed <= 0.01) {
+        physics.mode = "stopped";
+      }
+    }
+  }
+
+  physics.lane = clamp(physics.lane, -0.48, field.lanes - 1 + 0.48);
+  physics.column = clamp(physics.column, -0.48, field.columns - 1 + 0.48);
+  physics.playbackTimeMs = toMs;
+}
+
+function applyTimelineEvent(physics, event) {
+  if (event.kind === "ball_impulse") {
+    physics.mode = "impulse";
+    physics.holderPlayerId = null;
+    physics.velocityLane = event.velocityLane;
+    physics.velocityColumn = event.velocityColumn;
+    physics.friction = event.friction * 0.35;
+    return;
+  }
+
+  if (event.kind === "ball_attach") {
+    physics.mode = "attaching";
+    physics.holderPlayerId = normalizeId(event.playerId ?? event.actorId);
+    physics.attachStartedAtMs = event.timeMs;
+    physics.attachFromLane = physics.lane;
+    physics.attachFromColumn = physics.column;
+    physics.velocityLane = 0;
+    physics.velocityColumn = 0;
+    physics.friction = 0;
+    return;
+  }
+
+  if (event.kind === "ball_stop") {
+    physics.mode = "stopping";
+    physics.holderPlayerId = null;
+    physics.stopStartedAtMs = event.timeMs;
+    physics.stopFromLane = physics.lane;
+    physics.stopFromColumn = physics.column;
+    physics.stopTargetLane = event.lane;
+    physics.stopTargetColumn = event.column;
+    physics.velocityLane = 0;
+    physics.velocityColumn = 0;
+    physics.friction = 0;
+    return;
+  }
+
+  if (event.kind === "ball_teleport") {
+    physics.mode = "stopped";
+    physics.holderPlayerId = null;
+    physics.lane = event.lane;
+    physics.column = event.column;
+    physics.velocityLane = 0;
+    physics.velocityColumn = 0;
+    physics.friction = 0;
+  }
 }
 
 function projectFallbackState(frame, visualPlayers) {
@@ -239,6 +429,10 @@ function physicsEventKey(event) {
 function finiteNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+function lerpNumber(a, b, t) {
+  return a + (b - a) * t;
 }
 
 function finiteOptionalNumber(value) {
