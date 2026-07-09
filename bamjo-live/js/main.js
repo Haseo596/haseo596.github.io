@@ -185,6 +185,9 @@ function resetMatchView() {
   state.pendingTimers.clear();
   clearTimeout(state.timelineRequestTimer);
   state.timelineRequestTimer = null;
+  state.playbackTimeMs = 0;
+  state.playbackLastNow = 0;
+  state.playbackInitialized = false;
   state.info = null;
   state.usesTimeline = false;
   state.previousFrame = null;
@@ -243,6 +246,7 @@ function handleServerMessage(message) {
       state.usesTimeline = Number(message.protocol || 0) >= 2;
       field.lanes = message.field?.lanes || field.lanes;
       field.columns = message.field?.columns || field.columns;
+      field.coordinateMode = message.field?.coordinateMode || "grid";
       state.animationDurationMs = getTickAnimationDuration();
       els.matchIdLabel.textContent = message.matchId || "-";
       setPhase(message.status);
@@ -340,10 +344,13 @@ function requestTimelineWindow() {
 
 function adoptTimeline(message) {
   mergeVisualFrames((message.visualFrames || []).map(normalizeFrame));
-  mergeTimelineFrames((message.frames || []).map(normalizeFrame));
-  mergePlayerMotions(message.motions || []);
+  if (Number(state.info?.protocol || 0) < 4) {
+    mergeTimelineFrames((message.frames || []).map(normalizeFrame));
+    mergePlayerMotions(message.motions || []);
+    queueBallPhysicsEvents(message.physics || []);
+  }
+
   queueTimelineEvents(message.events || []);
-  queueBallPhysicsEvents(message.physics || []);
 }
 
 function mergeVisualFrames(frames) {

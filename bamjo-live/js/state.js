@@ -1,4 +1,4 @@
-export const field = { lanes: 3, columns: 7 };
+export const field = { lanes: 3, columns: 7, coordinateMode: "grid" };
 export const maxEvents = 36;
 export const reconnectDelayMs = 2500;
 export const playbackDelayMs = 700;
@@ -29,6 +29,9 @@ export const state = {
   socket: null,
   reconnectTimer: null,
   timelineRequestTimer: null,
+  playbackTimeMs: 0,
+  playbackLastNow: 0,
+  playbackInitialized: false,
   shouldReconnect: false,
   info: null,
   usesTimeline: false,
