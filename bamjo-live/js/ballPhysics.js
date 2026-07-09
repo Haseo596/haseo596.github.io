@@ -160,16 +160,39 @@ function projectImpulse(event, playbackTimeMs) {
     };
   }
 
+  const target = targetPoint(event);
   const stopTime = event.friction > 0 ? speed / event.friction : Number.POSITIVE_INFINITY;
   const t = Math.min(elapsedSeconds, stopTime);
   const distance = event.friction > 0
     ? speed * t - 0.5 * event.friction * t * t
     : speed * t;
+  const lane = event.lane + (event.velocityLane / speed) * distance;
+  const column = event.column + (event.velocityColumn / speed) * distance;
+
+  if (target) {
+    const targetDistance = Math.hypot(target.lane - event.lane, target.column - event.column);
+    if (targetDistance > 0 && distance >= targetDistance) {
+      return {
+        lane: clamp(target.lane, 0, field.lanes - 1),
+        column: clamp(target.column, 0, field.columns - 1)
+      };
+    }
+  }
 
   return {
-    lane: clamp(event.lane + (event.velocityLane / speed) * distance, 0, field.lanes - 1),
-    column: clamp(event.column + (event.velocityColumn / speed) * distance, 0, field.columns - 1)
+    lane: clamp(lane, 0, field.lanes - 1),
+    column: clamp(column, 0, field.columns - 1)
   };
+}
+
+function targetPoint(event) {
+  const lane = Number(event.targetLane);
+  const column = Number(event.targetColumn);
+  if (!Number.isFinite(lane) || !Number.isFinite(column)) {
+    return null;
+  }
+
+  return { lane, column };
 }
 
 function findPhysicsEventIndex(playbackTimeMs) {
@@ -195,6 +218,8 @@ function normalizePhysicsEvent(event, key) {
     playerId: normalizeId(event.playerId),
     lane: finiteNumber(event.lane, 1),
     column: finiteNumber(event.column, 3),
+    targetLane: finiteOptionalNumber(event.targetLane),
+    targetColumn: finiteOptionalNumber(event.targetColumn),
     velocityLane: finiteNumber(event.velocityLane, 0),
     velocityColumn: finiteNumber(event.velocityColumn, 0),
     friction: Math.max(0, finiteNumber(event.friction, 0))
@@ -214,4 +239,9 @@ function physicsEventKey(event) {
 function finiteNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+function finiteOptionalNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }

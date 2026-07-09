@@ -97,6 +97,7 @@ export function getTimelineFrame(playbackTimeMs) {
       column: lerp(oldPlayer.column, player.column, t)
     };
   });
+  applyBallAttachAnchors(players, playbackTimeMs);
 
   const visualTick = lerp(previous.tick, next.tick, t);
 
@@ -334,6 +335,47 @@ function renderBall(frame) {
 
 function isBallAtPlayer(ball, player) {
   return Boolean(ball && ball.holderPlayerId !== null && String(ball.holderPlayerId) === String(player.id));
+}
+
+function applyBallAttachAnchors(players, playbackTimeMs) {
+  if (!state.usesTimeline || !Number.isFinite(playbackTimeMs)) {
+    return;
+  }
+
+  const leadMs = 260;
+  const settleMs = 260;
+
+  for (const event of state.physicsEvents) {
+    if (event.kind !== "ball_attach") {
+      continue;
+    }
+
+    const startsAt = event.timeMs - leadMs;
+    const endsAt = event.timeMs + settleMs;
+    if (playbackTimeMs < startsAt || playbackTimeMs > endsAt) {
+      continue;
+    }
+
+    const playerId = event.playerId ?? event.actorId;
+    const player = findPlayer(players, playerId);
+    if (!player) {
+      continue;
+    }
+
+    const targetLane = Number(event.lane);
+    const targetColumn = Number(event.column);
+    if (!Number.isFinite(targetLane) || !Number.isFinite(targetColumn)) {
+      continue;
+    }
+
+    const pull = playbackTimeMs <= event.timeMs
+      ? clamp((playbackTimeMs - startsAt) / leadMs, 0, 1)
+      : 1 - clamp((playbackTimeMs - event.timeMs) / settleMs, 0, 1);
+    const easedPull = 1 - Math.pow(1 - pull, 2);
+
+    player.lane = lerp(player.lane, targetLane, easedPull);
+    player.column = lerp(player.column, targetColumn, easedPull);
+  }
 }
 
 function createPlayerElement(player) {
