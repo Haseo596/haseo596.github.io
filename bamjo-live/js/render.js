@@ -57,6 +57,10 @@ export function getInterpolatedFrame(now) {
 }
 
 export function getTimelineFrame(playbackTimeMs) {
+  if (state.visualFrames.length > 0) {
+    return getVisualTimelineFrame(playbackTimeMs);
+  }
+
   const frames = state.timelineFrames;
   if (frames.length === 0) {
     return getInterpolatedFrame(performance.now());
@@ -91,6 +95,40 @@ export function getTimelineFrame(playbackTimeMs) {
     visualTick,
     players,
     ball: interpolateBall(previous, next, players, t, playbackTimeMs)
+  };
+}
+
+function getVisualTimelineFrame(playbackTimeMs) {
+  const frames = state.visualFrames;
+  let previous = frames[0];
+  let next = frames[frames.length - 1];
+
+  for (let i = 0; i < frames.length; i++) {
+    const frame = frames[i];
+    if (frameTime(frame) <= playbackTimeMs) {
+      previous = frame;
+      next = frames[Math.min(i + 1, frames.length - 1)] || frame;
+      continue;
+    }
+
+    next = frame;
+    break;
+  }
+
+  const previousTime = frameTime(previous);
+  const nextTime = frameTime(next);
+  const span = Math.max(1, nextTime - previousTime);
+  const t = previous === next ? 0 : clamp((playbackTimeMs - previousTime) / span, 0, 1);
+  const players = interpolatePlayersLinear(previous.players, next.players, t);
+  const visualTick = lerp(previous.tick, next.tick, t);
+
+  return {
+    ...next,
+    tick: visualTick,
+    visualTick,
+    visual: true,
+    players,
+    ball: interpolateVisualBall(previous.ball, next.ball, players, t)
   };
 }
 
@@ -197,7 +235,9 @@ export function setCustomFieldImage(value) {
 }
 
 function interpolateBall(previousFrame, targetFrame, visualPlayers, t, now) {
-  const physicsBall = projectBallPhysics(targetFrame, visualPlayers, now);
+  const physicsBall = state.usesTimeline
+    ? projectTimelineBall(targetFrame, visualPlayers, now)
+    : projectBallPhysics(targetFrame, visualPlayers, now);
   if (physicsBall) {
     return physicsBall;
   }
@@ -240,9 +280,42 @@ function interpolateBall(previousFrame, targetFrame, visualPlayers, t, now) {
 }
 
 function continuousTimelineFrame(frame) {
+  if (frame.visual) {
+    return frame;
+  }
+
   return {
     ...frame,
     ball: attachHeldBall(frame.ball, frame.players)
+  };
+}
+
+function interpolateVisualBall(previousBall, targetBall, visualPlayers, t) {
+  const previousHolderId = previousBall?.holderPlayerId;
+  const targetHolderId = targetBall?.holderPlayerId;
+  const sameHolder =
+    previousHolderId !== null &&
+    previousHolderId !== undefined &&
+    targetHolderId !== null &&
+    targetHolderId !== undefined &&
+    String(previousHolderId) === String(targetHolderId);
+
+  if (sameHolder) {
+    const holder = findPlayer(visualPlayers, targetHolderId);
+    if (holder) {
+      return {
+        ...targetBall,
+        lane: holder.lane,
+        column: holder.column
+      };
+    }
+  }
+
+  return {
+    ...targetBall,
+    holderPlayerId: sameHolder ? targetHolderId : null,
+    lane: lerp(previousBall?.lane ?? targetBall?.lane ?? 1, targetBall?.lane ?? previousBall?.lane ?? 1, t),
+    column: lerp(previousBall?.column ?? targetBall?.column ?? 3, targetBall?.column ?? previousBall?.column ?? 3, t)
   };
 }
 
@@ -252,17 +325,18 @@ function timelineMotionPlayers(previousPlayers, targetPlayers, previousTimeMs, p
 
   return targetPlayers.map((player) => {
     const fallback = fallbackMap.get(String(player.id)) || player;
-    const sampleTimeMs = playbackTimeMs + playerSampleOffsetMs(player);
-    const sampled = sampleTimelinePlayer(player.id, previousTimeMs, sampleTimeMs);
+    const motion = playerMotionAt(player.id, previousTimeMs, playbackTimeMs);
+    const sampled = motion
+      ? motionPosition(motion, playbackTimeMs)
+      : sampleTimelinePlayer(player.id, previousTimeMs, playbackTimeMs);
     if (!sampled) {
       return fallback;
     }
 
-    const offset = playerCellOffset(fallback);
     return {
       ...fallback,
-      lane: clamp(sampled.lane + offset.lane, -0.22, 2.22),
-      column: clamp(sampled.column + offset.column, -0.22, 6.22)
+      lane: clamp(sampled.lane, -0.22, 2.22),
+      column: clamp(sampled.column, -0.22, 6.22)
     };
   });
 }
@@ -312,15 +386,6 @@ function sampleTimelinePlayer(playerId, previousTimeMs, sampleTimeMs) {
   };
 }
 
-function playerSampleOffsetMs(player) {
-  if (player.hasBall) {
-    return 0;
-  }
-
-  const seed = hashId(player.id);
-  return ((seed % 121) - 60) * 2;
-}
-
 function playerMotionAt(playerId, previousTimeMs, playbackTimeMs) {
   const id = String(playerId);
   let latest = null;
@@ -349,20 +414,130 @@ function playerMotionAt(playerId, previousTimeMs, playbackTimeMs) {
 function motionPosition(motion, playbackTimeMs) {
   const duration = Math.max(1, motion.toMs - motion.fromMs);
   const t = clamp((playbackTimeMs - motion.fromMs) / duration, 0, 1);
-  const laneDelta = motion.toLane - motion.fromLane;
-  const columnDelta = motion.toColumn - motion.fromColumn;
-  const distance = Math.hypot(laneDelta, columnDelta);
-  let lane = lerp(motion.fromLane, motion.toLane, t);
-  let column = lerp(motion.fromColumn, motion.toColumn, t);
+  return {
+    lane: lerp(motion.fromLane, motion.toLane, t),
+    column: lerp(motion.fromColumn, motion.toColumn, t)
+  };
+}
 
-  if (distance > 0.01 && t > 0 && t < 1) {
-    const side = stableSide(motion.playerId);
-    const curve = Math.sin(Math.PI * t) * Math.min(0.16, distance * 0.055) * side;
-    lane += (-columnDelta / distance) * curve;
-    column += (laneDelta / distance) * curve;
+function projectTimelineBall(frame, visualPlayers, playbackTimeMs) {
+  if (!frame?.ball || state.physicsEvents.length === 0) {
+    return attachHeldBall(frame?.ball, visualPlayers);
   }
 
-  return { lane, column };
+  const eventIndex = timelineBallEventIndex(playbackTimeMs);
+  if (eventIndex < 0) {
+    return attachHeldBall(frame.ball, visualPlayers);
+  }
+
+  const event = state.physicsEvents[eventIndex];
+  if (event.kind === "ball_impulse") {
+    return timelineBallFlight(frame.ball, visualPlayers, event, playbackTimeMs);
+  }
+
+  if (event.kind === "ball_attach") {
+    const holderId = event.playerId ?? event.actorId;
+    const holder = findPlayer(visualPlayers, holderId);
+    if (holder) {
+      return {
+        ...frame.ball,
+        holderPlayerId: holder.id,
+        lane: holder.lane,
+        column: holder.column
+      };
+    }
+  }
+
+  if (event.kind === "ball_stop" || event.kind === "ball_teleport") {
+    return {
+      ...frame.ball,
+      holderPlayerId: null,
+      lane: event.lane,
+      column: event.column
+    };
+  }
+
+  return attachHeldBall(frame.ball, visualPlayers);
+}
+
+function timelineBallFlight(ball, visualPlayers, startEvent, playbackTimeMs) {
+  const nextEvent = nextBallEvent(startEvent.timeMs);
+  const start = eventStartPoint(startEvent, visualPlayers);
+  const end = nextEvent
+    ? eventEndPoint(nextEvent, startEvent, visualPlayers)
+    : fallbackImpulsePoint(startEvent, playbackTimeMs);
+
+  const span = nextEvent
+    ? Math.max(1, nextEvent.timeMs - startEvent.timeMs)
+    : 1000;
+  const t = nextEvent
+    ? clamp((playbackTimeMs - startEvent.timeMs) / span, 0, 1)
+    : 1;
+
+  return {
+    ...ball,
+    holderPlayerId: null,
+    lane: lerp(start.lane, end.lane, t),
+    column: lerp(start.column, end.column, t)
+  };
+}
+
+function eventStartPoint(event, visualPlayers) {
+  return { lane: event.lane, column: event.column };
+}
+
+function eventEndPoint(event, startEvent, visualPlayers) {
+  if (event.kind === "ball_impulse") {
+    return { lane: event.lane, column: event.column };
+  }
+
+  if (event.kind === "ball_attach") {
+    const holderId = event.playerId ?? event.actorId;
+    const sampled = holderId ? sampleTimelinePlayer(holderId, 0, event.timeMs) : null;
+    if (sampled) {
+      return sampled;
+    }
+
+    const holder = holderId ? findPlayer(visualPlayers, holderId) : null;
+    if (holder) {
+      return { lane: holder.lane, column: holder.column };
+    }
+  }
+
+  if (event.kind === "ball_stop" && event.source === "goal") {
+    return {
+      lane: event.lane,
+      column: event.column + Math.sign(startEvent.velocityColumn || 0) * 0.42
+    };
+  }
+
+  return { lane: event.lane, column: event.column };
+}
+
+function fallbackImpulsePoint(event, playbackTimeMs) {
+  const elapsedSeconds = Math.max(0, (playbackTimeMs - event.timeMs) / 1000);
+  return {
+    lane: event.lane + event.velocityLane * elapsedSeconds,
+    column: event.column + event.velocityColumn * elapsedSeconds
+  };
+}
+
+function timelineBallEventIndex(playbackTimeMs) {
+  let index = -1;
+  for (let i = 0; i < state.physicsEvents.length; i++) {
+    if (state.physicsEvents[i].timeMs > playbackTimeMs) {
+      break;
+    }
+
+    index = i;
+  }
+
+  return index;
+}
+
+function nextBallEvent(afterTimeMs) {
+  return state.physicsEvents.find((event) =>
+    event.timeMs > afterTimeMs);
 }
 
 function continuousPlayers(players, now) {
@@ -486,11 +661,10 @@ function interpolatePlayersLinear(previousPlayers, targetPlayers, t) {
 
   return targetPlayers.map((player) => {
     const previous = previousMap.get(String(player.id)) || player;
-    const offset = playerCellOffset(player);
     return {
       ...player,
-      lane: clamp(lerp(previous.lane, player.lane, t) + offset.lane, -0.18, 2.18),
-      column: clamp(lerp(previous.column, player.column, t) + offset.column, -0.18, 6.18)
+      lane: clamp(lerp(previous.lane, player.lane, t), -0.18, 2.18),
+      column: clamp(lerp(previous.column, player.column, t), -0.18, 6.18)
     };
   });
 }

@@ -196,9 +196,11 @@ function resetMatchView() {
   state.eventKeys.clear();
   state.effectKeys.clear();
   state.scheduledFrameKeys.clear();
+  state.visualFrameKeys.clear();
   state.playerMotionKeys.clear();
   state.physicsEventKeys.clear();
   state.timelineEventKeys.clear();
+  state.visualFrames = [];
   state.timelineFrames = [];
   state.playerMotions = [];
   state.timelineEvents = [];
@@ -337,10 +339,26 @@ function requestTimelineWindow() {
 }
 
 function adoptTimeline(message) {
+  mergeVisualFrames((message.visualFrames || []).map(normalizeFrame));
   mergeTimelineFrames((message.frames || []).map(normalizeFrame));
   mergePlayerMotions(message.motions || []);
   queueTimelineEvents(message.events || []);
   queueBallPhysicsEvents(message.physics || []);
+}
+
+function mergeVisualFrames(frames) {
+  for (const frame of frames) {
+    const key = String(frame.key ?? frame.timeMs ?? frame.tick);
+    if (state.visualFrameKeys.has(key)) {
+      continue;
+    }
+
+    state.visualFrameKeys.add(key);
+    state.visualFrames.push(frame);
+  }
+
+  state.visualFrames.sort((left, right) => frameTime(left) - frameTime(right));
+  pruneTimelineBuffers();
 }
 
 function mergeTimelineFrames(frames) {
@@ -406,6 +424,7 @@ function normalizePlayerMotion(motion) {
 function pruneTimelineBuffers() {
   const keepAfterMs = Math.max(0, getPlaybackTimeMs() - getTimelineRetentionMs());
 
+  state.visualFrames = state.visualFrames.filter((frame) => frameTime(frame) >= keepAfterMs);
   state.timelineFrames = state.timelineFrames.filter((frame) => frameTime(frame) >= keepAfterMs);
   state.playerMotions = state.playerMotions.filter((motion) => motion.toMs >= keepAfterMs);
   state.timelineEvents = state.timelineEvents.filter((event) => eventTime(event) >= keepAfterMs);
