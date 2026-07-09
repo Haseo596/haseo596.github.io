@@ -1,6 +1,7 @@
 import { field, state } from "./state.js";
-import { scheduleAtMatchTime } from "./timeline.js";
-import { clamp, findPlayer, normalizeId } from "./utils.js";
+import { clamp, findPlayer, normalizeId, trimSet } from "./utils.js";
+
+const attachTransitionMs = 180;
 
 export function queueBallPhysicsEvents(events) {
   for (const event of events || []) {
@@ -10,8 +11,11 @@ export function queueBallPhysicsEvents(events) {
     }
 
     state.physicsEventKeys.add(key);
-    scheduleAtMatchTime(event.timeMs, (dueAt) => applyBallPhysicsEvent(event, dueAt));
+    state.physicsEvents.push(normalizePhysicsEvent(event, key));
   }
+
+  state.physicsEvents.sort((left, right) => left.timeMs - right.timeMs);
+  trimSet(state.physicsEventKeys, 500);
 }
 
 export function resetBallPhysicsFromFrame(frame) {
@@ -20,25 +24,38 @@ export function resetBallPhysicsFromFrame(frame) {
     return;
   }
 
-  if (frame.ball.holderPlayerId !== null) {
-    state.ballPhysics = {
-      mode: "attached",
-      holderPlayerId: frame.ball.holderPlayerId,
-      lane: frame.ball.lane,
-      column: frame.ball.column
-    };
-    return;
-  }
-
   state.ballPhysics = {
-    mode: "stopped",
-    holderPlayerId: null,
+    mode: frame.ball.holderPlayerId !== null ? "attached" : "stopped",
+    holderPlayerId: frame.ball.holderPlayerId,
     lane: frame.ball.lane,
     column: frame.ball.column
   };
 }
 
-export function projectBallPhysics(frame, visualPlayers, now) {
+export function projectBallPhysics(frame, visualPlayers, playbackTimeMs) {
+  if (!state.usesTimeline) {
+    return projectFallbackState(frame, visualPlayers);
+  }
+
+  const eventIndex = findPhysicsEventIndex(playbackTimeMs);
+  if (eventIndex < 0) {
+    return null;
+  }
+
+  const event = state.physicsEvents[eventIndex];
+  const previous = eventIndex > 0 ? state.physicsEvents[eventIndex - 1] : null;
+  const projected = projectFromEvent(event, previous, visualPlayers, playbackTimeMs);
+  if (!projected) {
+    return null;
+  }
+
+  return {
+    ...frame.ball,
+    ...projected
+  };
+}
+
+function projectFallbackState(frame, visualPlayers) {
   const physics = state.ballPhysics;
   if (!physics || !frame?.ball) {
     return null;
@@ -58,38 +75,6 @@ export function projectBallPhysics(frame, visualPlayers, now) {
     };
   }
 
-  if (physics.mode === "attach_transition") {
-    const holder = findPlayer(visualPlayers, physics.holderPlayerId);
-    if (!holder) {
-      return null;
-    }
-
-    const t = clamp((now - physics.startedAt) / physics.durationMs, 0, 1);
-    if (t >= 1) {
-      state.ballPhysics = {
-        mode: "attached",
-        holderPlayerId: physics.holderPlayerId,
-        lane: holder.lane,
-        column: holder.column
-      };
-    }
-
-    return {
-      ...frame.ball,
-      holderPlayerId: physics.holderPlayerId,
-      lane: physics.fromLane + (holder.lane - physics.fromLane) * t,
-      column: physics.fromColumn + (holder.column - physics.fromColumn) * t
-    };
-  }
-
-  if (physics.mode === "free") {
-    return {
-      ...frame.ball,
-      holderPlayerId: null,
-      ...projectFreeBall(physics, now)
-    };
-  }
-
   return {
     ...frame.ball,
     holderPlayerId: null,
@@ -98,84 +83,100 @@ export function projectBallPhysics(frame, visualPlayers, now) {
   };
 }
 
-function applyBallPhysicsEvent(event, dueAt) {
-  const kind = String(event.kind || "");
-
-  if (kind === "ball_impulse") {
-    const lateByMs = Math.max(0, Date.now() - dueAt);
-    state.ballPhysics = {
-      mode: "free",
+function projectFromEvent(event, previous, visualPlayers, playbackTimeMs) {
+  if (event.kind === "ball_impulse") {
+    return {
       holderPlayerId: null,
-      startedAt: performance.now() - lateByMs,
-      lane: finiteNumber(event.lane, 1),
-      column: finiteNumber(event.column, 3),
-      velocityLane: finiteNumber(event.velocityLane, 0),
-      velocityColumn: finiteNumber(event.velocityColumn, 0),
-      friction: Math.max(0, finiteNumber(event.friction, 0))
+      ...projectImpulse(event, playbackTimeMs)
     };
-    return;
   }
 
-  if (kind === "ball_attach") {
-    const from = currentBallPosition();
-    state.ballPhysics = {
-      mode: "attach_transition",
-      holderPlayerId: normalizeId(event.playerId ?? event.actorId),
-      startedAt: performance.now(),
-      durationMs: 160,
-      fromLane: from.lane,
-      fromColumn: from.column,
-      lane: finiteNumber(event.lane, 1),
-      column: finiteNumber(event.column, 3)
+  if (event.kind === "ball_attach") {
+    const holderId = normalizeId(event.playerId ?? event.actorId);
+    const holder = findPlayer(visualPlayers, holderId);
+    const target = holder
+      ? { lane: holder.lane, column: holder.column }
+      : { lane: event.lane, column: event.column };
+    const elapsed = Math.max(0, playbackTimeMs - event.timeMs);
+    if (elapsed >= attachTransitionMs) {
+      return {
+        holderPlayerId: holderId,
+        lane: target.lane,
+        column: target.column
+      };
+    }
+
+    const from = previous
+      ? projectFromEvent(previous, null, visualPlayers, event.timeMs)
+      : { lane: event.lane, column: event.column };
+    const t = clamp(elapsed / attachTransitionMs, 0, 1);
+
+    return {
+      holderPlayerId: holderId,
+      lane: from.lane + (target.lane - from.lane) * t,
+      column: from.column + (target.column - from.column) * t
     };
-    return;
   }
 
-  if (kind === "ball_stop" || kind === "ball_teleport") {
-    state.ballPhysics = {
-      mode: "stopped",
+  if (event.kind === "ball_stop" || event.kind === "ball_teleport") {
+    return {
       holderPlayerId: null,
-      lane: finiteNumber(event.lane, 1),
-      column: finiteNumber(event.column, 3)
+      lane: event.lane,
+      column: event.column
     };
   }
+
+  return null;
 }
 
-function currentBallPosition() {
-  const physics = state.ballPhysics;
-  if (!physics) {
-    return { lane: 1, column: 3 };
-  }
-
-  if (physics.mode === "free") {
-    return projectFreeBall(physics, performance.now());
-  }
-
-  return {
-    lane: finiteNumber(physics.lane, 1),
-    column: finiteNumber(physics.column, 3)
-  };
-}
-
-function projectFreeBall(physics, now) {
-  const elapsedSeconds = Math.max(0, (now - physics.startedAt) / 1000);
-  const speed = Math.hypot(physics.velocityLane, physics.velocityColumn);
+function projectImpulse(event, playbackTimeMs) {
+  const elapsedSeconds = Math.max(0, (playbackTimeMs - event.timeMs) / 1000);
+  const speed = Math.hypot(event.velocityLane, event.velocityColumn);
   if (speed <= 0) {
     return {
-      lane: clamp(physics.lane, 0, field.lanes - 1),
-      column: clamp(physics.column, 0, field.columns - 1)
+      lane: clamp(event.lane, 0, field.lanes - 1),
+      column: clamp(event.column, 0, field.columns - 1)
     };
   }
 
-  const stopTime = physics.friction > 0 ? speed / physics.friction : Number.POSITIVE_INFINITY;
+  const stopTime = event.friction > 0 ? speed / event.friction : Number.POSITIVE_INFINITY;
   const t = Math.min(elapsedSeconds, stopTime);
-  const distance = physics.friction > 0
-    ? speed * t - 0.5 * physics.friction * t * t
+  const distance = event.friction > 0
+    ? speed * t - 0.5 * event.friction * t * t
     : speed * t;
 
   return {
-    lane: clamp(physics.lane + (physics.velocityLane / speed) * distance, 0, field.lanes - 1),
-    column: clamp(physics.column + (physics.velocityColumn / speed) * distance, 0, field.columns - 1)
+    lane: clamp(event.lane + (event.velocityLane / speed) * distance, 0, field.lanes - 1),
+    column: clamp(event.column + (event.velocityColumn / speed) * distance, 0, field.columns - 1)
+  };
+}
+
+function findPhysicsEventIndex(playbackTimeMs) {
+  let index = -1;
+  for (var i = 0; i < state.physicsEvents.length; i++) {
+    if (state.physicsEvents[i].timeMs > playbackTimeMs) {
+      break;
+    }
+
+    index = i;
+  }
+
+  return index;
+}
+
+function normalizePhysicsEvent(event, key) {
+  return {
+    ...event,
+    id: key,
+    kind: String(event.kind || ""),
+    timeMs: finiteNumber(event.timeMs, 0),
+    actorId: normalizeId(event.actorId),
+    playerId: normalizeId(event.playerId),
+    lane: finiteNumber(event.lane, 1),
+    column: finiteNumber(event.column, 3),
+    velocityLane: finiteNumber(event.velocityLane, 0),
+    velocityColumn: finiteNumber(event.velocityColumn, 0),
+    friction: Math.max(0, finiteNumber(event.friction, 0))
   };
 }
 

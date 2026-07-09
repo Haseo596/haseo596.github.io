@@ -44,8 +44,12 @@ export const state = {
   eventKeys: new Set(),
   effectKeys: new Set(),
   scheduledFrameKeys: new Set(),
+  timelineEventKeys: new Set(),
   physicsEventKeys: new Set(),
   pendingTimers: new Set(),
   ballPhysics: null,
+  timelineFrames: [],
+  timelineEvents: [],
+  physicsEvents: [],
   events: []
 };

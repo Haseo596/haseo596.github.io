@@ -1,5 +1,4 @@
 import { els, maxEvents, state } from "./state.js";
-import { scheduleAtMatchTime } from "./timeline.js";
 import { cellToPercent, formatMatchTime, teamColor, trimSet } from "./utils.js";
 
 export function queueFrameEvents(frame, sourceType) {
@@ -21,15 +20,39 @@ export function queueFrameEvents(frame, sourceType) {
 
 export function queueTimelineEvents(events) {
   for (const event of events || []) {
-    scheduleAtMatchTime(event.timeMs, () => {
-      const frame = state.targetFrame || fallbackFrame();
-      if (shouldSpawnEffect(event)) {
-        spawnEffectOnce(event, frame);
-      }
-      if (event.visible !== false) {
-        pushEvent(event);
-      }
-    });
+    const key = eventKey(event);
+    if (state.timelineEventKeys.has(key) || state.eventKeys.has(key)) {
+      continue;
+    }
+
+    state.timelineEventKeys.add(key);
+    state.timelineEvents.push(event);
+  }
+
+  state.timelineEvents.sort((left, right) => eventTime(left) - eventTime(right));
+  trimSet(state.timelineEventKeys, 300);
+}
+
+export function flushTimelineEvents(playbackTimeMs, frame) {
+  const due = [];
+  const future = [];
+
+  for (const event of state.timelineEvents) {
+    if (eventTime(event) <= playbackTimeMs) {
+      due.push(event);
+    } else {
+      future.push(event);
+    }
+  }
+
+  state.timelineEvents = future;
+  for (const event of due) {
+    if (shouldSpawnEffect(event)) {
+      spawnEffectOnce(event, frame || fallbackFrame());
+    }
+    if (event.visible !== false) {
+      pushEvent(event);
+    }
   }
 }
 
@@ -201,6 +224,11 @@ function eventKey(event) {
     event.hero || "-",
     event.text || "-"
   ].join("|");
+}
+
+function eventTime(event) {
+  const time = Number(event.timeMs);
+  return Number.isFinite(time) ? time : Number.POSITIVE_INFINITY;
 }
 
 function fallbackFrame() {

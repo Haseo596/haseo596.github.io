@@ -1,5 +1,14 @@
 import { playbackDelayMs, state } from "./state.js";
 
+export function getPlaybackTimeMs() {
+  const startedAtMs = Date.parse(state.info?.startedAt || "");
+  if (!Number.isFinite(startedAtMs)) {
+    return 0;
+  }
+
+  return Math.max(0, Date.now() - startedAtMs - playbackDelayMs);
+}
+
 export function scheduleAtMatchTime(timeMs, callback) {
   const dueAt = matchWallTime(timeMs);
   const delay = Math.max(0, dueAt - Date.now());

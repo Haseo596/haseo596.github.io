@@ -1,5 +1,7 @@
 import { els, state, tickAnimationStretch } from "./state.js";
 import { projectBallPhysics } from "./ballPhysics.js";
+import { flushTimelineEvents } from "./events.js";
+import { getPlaybackTimeMs } from "./timeline.js";
 import {
   cellToPercent,
   clamp,
@@ -14,12 +16,19 @@ import {
 
 export function renderFrame(now) {
   updateMatchStatus();
-  const frame = getInterpolatedFrame(now);
+  const playbackTimeMs = state.usesTimeline ? getPlaybackTimeMs() : null;
+  const frame = state.usesTimeline
+    ? getTimelineFrame(playbackTimeMs)
+    : getInterpolatedFrame(now);
   if (frame) {
     updateTick(frame.visualTick ?? frame.tick);
+    updateScore(frame.score);
     renderPlayers(frame);
     renderObjects(frame);
     renderBall(frame);
+    if (state.usesTimeline) {
+      flushTimelineEvents(playbackTimeMs, frame);
+    }
   }
 }
 
@@ -51,6 +60,52 @@ export function getInterpolatedFrame(now) {
     visualTick,
     players,
     ball: interpolateBall(state.previousFrame, state.targetFrame, players, t, now)
+  };
+}
+
+export function getTimelineFrame(playbackTimeMs) {
+  const frames = state.timelineFrames;
+  if (frames.length === 0) {
+    return getInterpolatedFrame(performance.now());
+  }
+
+  let previous = frames[0];
+  let next = frames[frames.length - 1];
+
+  for (let i = 0; i < frames.length; i++) {
+    const frame = frames[i];
+    if (frameTime(frame) <= playbackTimeMs) {
+      previous = frame;
+      next = frames[Math.min(i + 1, frames.length - 1)] || frame;
+      continue;
+    }
+
+    next = frame;
+    break;
+  }
+
+  const previousTime = frameTime(previous);
+  const nextTime = frameTime(next);
+  const span = Math.max(1, nextTime - previousTime);
+  const t = previous === next ? 0 : clamp((playbackTimeMs - previousTime) / span, 0, 1);
+  const previousPlayers = new Map(previous.players.map((player) => [String(player.id), player]));
+  const players = next.players.map((player) => {
+    const oldPlayer = previousPlayers.get(String(player.id)) || player;
+    return {
+      ...player,
+      lane: lerp(oldPlayer.lane, player.lane, t),
+      column: lerp(oldPlayer.column, player.column, t)
+    };
+  });
+
+  const visualTick = lerp(previous.tick, next.tick, t);
+
+  return {
+    ...next,
+    tick: visualTick,
+    visualTick,
+    players,
+    ball: interpolateBall(previous, next, players, t, playbackTimeMs)
   };
 }
 
@@ -197,6 +252,16 @@ function interpolateBall(previousFrame, targetFrame, visualPlayers, t, now) {
     lane: lerp(previousBall.lane, targetFrame.ball.lane, t),
     column: lerp(previousBall.column, targetFrame.ball.column, t)
   };
+}
+
+function frameTime(frame) {
+  const time = Number(frame.timeMs);
+  if (Number.isFinite(time)) {
+    return time;
+  }
+
+  const tickDurationMs = Number(state.info?.tickDurationMs || state.animationDurationMs || 2800);
+  return Number(frame.tick || 0) * tickDurationMs;
 }
 
 function renderPlayers(frame) {

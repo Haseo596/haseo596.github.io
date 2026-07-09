@@ -1,4 +1,4 @@
-import { els, field, playbackDelayMs, reconnectDelayMs, state } from "./state.js";
+import { els, field, reconnectDelayMs, state } from "./state.js";
 import {
   buildSnapshotUrl,
   buildWebSocketUrl,
@@ -10,7 +10,7 @@ import {
 import { normalizeFrame } from "./frames.js";
 import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js";
 import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js";
-import { scheduleAtMatchTime } from "./timeline.js";
+import { getPlaybackTimeMs } from "./timeline.js";
 import {
   getInterpolatedFrame,
   getStatusCode,
@@ -196,6 +196,10 @@ function resetMatchView() {
   state.effectKeys.clear();
   state.scheduledFrameKeys.clear();
   state.physicsEventKeys.clear();
+  state.timelineEventKeys.clear();
+  state.timelineFrames = [];
+  state.timelineEvents = [];
+  state.physicsEvents = [];
   els.events.replaceChildren();
   els.effectsLayer?.replaceChildren();
 }
@@ -309,7 +313,7 @@ function requestTimelineWindow() {
 
   const startedAtMs = Date.parse(state.info.startedAt || "");
   if (Number.isFinite(startedAtMs)) {
-    const playbackMs = Math.max(0, Date.now() - startedAtMs - playbackDelayMs);
+    const playbackMs = getPlaybackTimeMs();
     const overlapMs = Number(state.info.timeline?.overlapMs || 300);
     const lookAheadMs = Number(state.info.timeline?.lookAheadMs || 2200);
     const durationMs = Number(state.info.durationMs || 0);
@@ -331,33 +335,47 @@ function requestTimelineWindow() {
 }
 
 function adoptTimeline(message) {
-  for (const frameMessage of message.frames || []) {
-    scheduleTimelineFrame(normalizeFrame(frameMessage));
-  }
-
+  mergeTimelineFrames((message.frames || []).map(normalizeFrame));
   queueTimelineEvents(message.events || []);
   queueBallPhysicsEvents(message.physics || []);
 }
 
-function scheduleTimelineFrame(frame) {
-  const key = String(frame.timeMs ?? frame.tick);
-  if (state.scheduledFrameKeys.has(key)) {
-    return;
-  }
-
-  if (Number.isFinite(frame.timeMs) && frame.timeMs < state.lastFrameTimeMs - 50) {
-    return;
-  }
-
-  state.scheduledFrameKeys.add(key);
-  scheduleAtMatchTime(frame.timeMs, () => {
-    state.scheduledFrameKeys.delete(key);
-    if (Number.isFinite(frame.timeMs) && frame.timeMs < state.lastFrameTimeMs - 50) {
-      return;
+function mergeTimelineFrames(frames) {
+  for (const frame of frames) {
+    const key = String(frame.timeMs ?? frame.tick);
+    if (state.scheduledFrameKeys.has(key)) {
+      continue;
     }
 
-    adoptNormalizedFrame(frame, "timeline");
-  });
+    state.scheduledFrameKeys.add(key);
+    state.timelineFrames.push(frame);
+  }
+
+  state.timelineFrames.sort((left, right) => frameTime(left) - frameTime(right));
+  pruneTimelineBuffers();
+}
+
+function pruneTimelineBuffers() {
+  const keepAfterMs = Math.max(0, getPlaybackTimeMs() - 5000);
+
+  state.timelineFrames = state.timelineFrames.filter((frame) => frameTime(frame) >= keepAfterMs);
+  state.timelineEvents = state.timelineEvents.filter((event) => eventTime(event) >= keepAfterMs);
+  state.physicsEvents = state.physicsEvents.filter((event) => eventTime(event) >= keepAfterMs);
+}
+
+function frameTime(frame) {
+  const time = Number(frame.timeMs);
+  if (Number.isFinite(time)) {
+    return time;
+  }
+
+  const tickDurationMs = Number(state.info?.tickDurationMs || state.animationDurationMs || 2800);
+  return Number(frame.tick || 0) * tickDurationMs;
+}
+
+function eventTime(event) {
+  const time = Number(event.timeMs);
+  return Number.isFinite(time) ? time : Number.POSITIVE_INFINITY;
 }
 
 function adoptFrame(message, sourceType) {
