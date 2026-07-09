@@ -1,6 +1,7 @@
 export const field = { lanes: 3, columns: 7 };
 export const maxEvents = 36;
 export const reconnectDelayMs = 2500;
+export const playbackDelayMs = 700;
 export const tickAnimationStretch = 1;
 
 export const els = {
@@ -27,18 +28,24 @@ export const els = {
 export const state = {
   socket: null,
   reconnectTimer: null,
+  timelineRequestTimer: null,
   shouldReconnect: false,
   info: null,
+  usesTimeline: false,
   previousFrame: null,
   targetFrame: null,
   animationStartedAt: 0,
   animationDurationMs: 2800,
+  lastFrameTimeMs: -1,
   connectionAttempt: 0,
   webSocketBase: "",
   playerEls: new Map(),
   objectEls: new Map(),
   eventKeys: new Set(),
   effectKeys: new Set(),
+  scheduledFrameKeys: new Set(),
+  physicsEventKeys: new Set(),
   pendingTimers: new Set(),
+  ballPhysics: null,
   events: []
 };

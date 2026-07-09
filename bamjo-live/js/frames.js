@@ -3,6 +3,7 @@ import { normalizeId } from "./utils.js";
 export function normalizeFrame(message) {
   return {
     tick: Number(message.tick || 0),
+    timeMs: finiteNumberOrNull(message.timeMs),
     status: message.status || "running",
     score: {
       red: Number(message.score?.red || 0),
@@ -45,6 +46,8 @@ export function normalizeFrame(message) {
       team: event.team || null,
       actor: event.actor || null,
       hero: event.hero || null,
+      offset: finiteNumberOrNull(event.offset),
+      timeMs: finiteNumberOrNull(event.timeMs),
       text: String(event.text || ""),
       lane: finiteNumberOrNull(event.lane),
       column: finiteNumberOrNull(event.column),

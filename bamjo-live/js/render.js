@@ -1,4 +1,5 @@
 import { els, state, tickAnimationStretch } from "./state.js";
+import { projectBallPhysics } from "./ballPhysics.js";
 import {
   cellToPercent,
   clamp,
@@ -49,7 +50,7 @@ export function getInterpolatedFrame(now) {
     tick: visualTick,
     visualTick,
     players,
-    ball: interpolateBall(state.previousFrame, state.targetFrame, players, t)
+    ball: interpolateBall(state.previousFrame, state.targetFrame, players, t, now)
   };
 }
 
@@ -155,7 +156,12 @@ export function setCustomFieldImage(value) {
   els.pitch.classList.add("customField");
 }
 
-function interpolateBall(previousFrame, targetFrame, visualPlayers, t) {
+function interpolateBall(previousFrame, targetFrame, visualPlayers, t, now) {
+  const physicsBall = projectBallPhysics(targetFrame, visualPlayers, now);
+  if (physicsBall) {
+    return physicsBall;
+  }
+
   const previousBall = previousFrame.ball || targetFrame.ball;
   const previousHolderId = previousBall.holderPlayerId;
   const targetHolderId = targetFrame.ball.holderPlayerId;

@@ -8,7 +8,9 @@ import {
   replaceCurrentQuery
 } from "./network.js";
 import { normalizeFrame } from "./frames.js";
-import { pushEvent, queueFrameEvents } from "./events.js";
+import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js";
+import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js";
+import { scheduleAtMatchTime } from "./timeline.js";
 import {
   getInterpolatedFrame,
   getStatusCode,
@@ -165,6 +167,7 @@ function sendClientMessage(message) {
 
 function closeCurrentSocket() {
   clearTimeout(state.reconnectTimer);
+  clearTimeout(state.timelineRequestTimer);
   state.shouldReconnect = false;
 
   if (state.socket) {
@@ -180,12 +183,19 @@ function resetMatchView() {
   }
 
   state.pendingTimers.clear();
+  clearTimeout(state.timelineRequestTimer);
+  state.timelineRequestTimer = null;
   state.info = null;
+  state.usesTimeline = false;
   state.previousFrame = null;
   state.targetFrame = null;
+  state.lastFrameTimeMs = -1;
+  state.ballPhysics = null;
   state.events = [];
   state.eventKeys.clear();
   state.effectKeys.clear();
+  state.scheduledFrameKeys.clear();
+  state.physicsEventKeys.clear();
   els.events.replaceChildren();
   els.effectsLayer?.replaceChildren();
 }
@@ -221,19 +231,38 @@ function handleServerMessage(message) {
 
     case "match_info":
       state.info = message;
+      state.usesTimeline = Number(message.protocol || 0) >= 2;
       field.lanes = message.field?.lanes || field.lanes;
       field.columns = message.field?.columns || field.columns;
       state.animationDurationMs = getTickAnimationDuration();
       els.matchIdLabel.textContent = message.matchId || "-";
       setPhase(message.status);
       updateTick(state.targetFrame?.tick || 0);
+      if (state.usesTimeline) {
+        startTimelineRequests();
+      }
       break;
 
     case "snapshot":
-    case "tick":
       updateServerTime(message.serverTime);
       setPhase(message.status);
       adoptFrame(message, message.type);
+      break;
+
+    case "tick":
+      if (state.usesTimeline) {
+        break;
+      }
+
+      updateServerTime(message.serverTime);
+      setPhase(message.status);
+      adoptFrame(message, message.type);
+      break;
+
+    case "timeline":
+      updateServerTime(message.serverTime);
+      setPhase(message.status);
+      adoptTimeline(message);
       break;
 
     case "finished":
@@ -241,6 +270,7 @@ function handleServerMessage(message) {
       setPhase("finished");
       setStatus("МАТЧ ОКОНЧЕН");
       state.shouldReconnect = false;
+      clearTimeout(state.timelineRequestTimer);
       updateScore(message.score);
       updateTick(message.tick);
       break;
@@ -267,8 +297,58 @@ function handleServerMessage(message) {
   }
 }
 
+function startTimelineRequests() {
+  clearTimeout(state.timelineRequestTimer);
+  requestTimelineWindow();
+}
+
+function requestTimelineWindow() {
+  if (!state.info || !state.socket || state.socket.readyState !== WebSocket.OPEN) {
+    return;
+  }
+
+  sendClientMessage({ type: "timeline" });
+
+  const intervalMs = Number(state.info.timeline?.chunkIntervalMs || 800);
+  state.timelineRequestTimer = setTimeout(requestTimelineWindow, Math.max(250, intervalMs));
+}
+
+function adoptTimeline(message) {
+  for (const frameMessage of message.frames || []) {
+    scheduleTimelineFrame(normalizeFrame(frameMessage));
+  }
+
+  queueTimelineEvents(message.events || []);
+  queueBallPhysicsEvents(message.physics || []);
+}
+
+function scheduleTimelineFrame(frame) {
+  const key = String(frame.timeMs ?? frame.tick);
+  if (state.scheduledFrameKeys.has(key)) {
+    return;
+  }
+
+  if (Number.isFinite(frame.timeMs) && frame.timeMs < state.lastFrameTimeMs - 50) {
+    return;
+  }
+
+  state.scheduledFrameKeys.add(key);
+  scheduleAtMatchTime(frame.timeMs, () => {
+    state.scheduledFrameKeys.delete(key);
+    if (Number.isFinite(frame.timeMs) && frame.timeMs < state.lastFrameTimeMs - 50) {
+      return;
+    }
+
+    adoptNormalizedFrame(frame, "timeline");
+  });
+}
+
 function adoptFrame(message, sourceType) {
   const frame = normalizeFrame(message);
+  adoptNormalizedFrame(frame, sourceType);
+}
+
+function adoptNormalizedFrame(frame, sourceType) {
   const currentVisual = getInterpolatedFrame(performance.now());
 
   state.previousFrame = currentVisual || frame;
@@ -278,11 +358,20 @@ function adoptFrame(message, sourceType) {
     sourceType === "snapshot"
       ? Math.min(state.animationDurationMs, 700)
       : getTickAnimationDuration();
+  state.lastFrameTimeMs = Number.isFinite(frame.timeMs)
+    ? frame.timeMs
+    : state.lastFrameTimeMs;
+
+  if (sourceType === "snapshot") {
+    resetBallPhysicsFromFrame(frame);
+  }
 
   updateScore(frame.score);
   updateTick(frame.tick);
   updateRosters(frame.players);
-  queueFrameEvents(frame, sourceType);
+  if (sourceType !== "timeline") {
+    queueFrameEvents(frame, sourceType);
+  }
 }
 
 function render(now) {

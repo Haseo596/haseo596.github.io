@@ -1,5 +1,6 @@
 import { els, maxEvents, state } from "./state.js";
-import { cellToPercent, teamColor, trimSet } from "./utils.js";
+import { scheduleAtMatchTime } from "./timeline.js";
+import { cellToPercent, formatMatchTime, teamColor, trimSet } from "./utils.js";
 
 export function queueFrameEvents(frame, sourceType) {
   for (const event of frame.events) {
@@ -15,6 +16,20 @@ export function queueFrameEvents(frame, sourceType) {
     }, delay);
 
     state.pendingTimers.add(timer);
+  }
+}
+
+export function queueTimelineEvents(events) {
+  for (const event of events || []) {
+    scheduleAtMatchTime(event.timeMs, () => {
+      const frame = state.targetFrame || fallbackFrame();
+      if (shouldSpawnEffect(event)) {
+        spawnEffectOnce(event, frame);
+      }
+      if (event.visible !== false) {
+        pushEvent(event);
+      }
+    });
   }
 }
 
@@ -46,6 +61,10 @@ export function hasTag(event, tag) {
 function eventDelayMs(event, sourceType, frame) {
   if (sourceType === "snapshot") {
     return 0;
+  }
+
+  if (Number.isFinite(event.offset)) {
+    return Math.round(state.animationDurationMs * Math.max(0, Math.min(1, event.offset)));
   }
 
   if (event.kind === "kickoff" && frame.events.some((item) => item.kind === "goal")) {
@@ -162,7 +181,8 @@ function createEventElement(event) {
 
   const meta = document.createElement("div");
   meta.className = "eventMeta";
-  meta.textContent = `${event.tick} · ${event.kind}${event.hero ? ` · ${event.hero}` : ""}`;
+  const eventTime = Number.isFinite(event.timeMs) ? formatMatchTime(event.timeMs) : event.tick;
+  meta.textContent = `${eventTime} · ${event.kind}${event.hero ? ` · ${event.hero}` : ""}`;
 
   const text = document.createElement("div");
   text.className = "eventText";
@@ -181,4 +201,14 @@ function eventKey(event) {
     event.hero || "-",
     event.text || "-"
   ].join("|");
+}
+
+function fallbackFrame() {
+  return {
+    players: [],
+    ball: {
+      lane: 1,
+      column: 3
+    }
+  };
 }
