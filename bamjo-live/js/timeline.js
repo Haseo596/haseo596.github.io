@@ -1,10 +1,11 @@
 import { playbackDelayMs, state } from "./state.js";
 
 export function scheduleAtMatchTime(timeMs, callback) {
-  const delay = Math.max(0, matchWallTime(timeMs) - Date.now());
+  const dueAt = matchWallTime(timeMs);
+  const delay = Math.max(0, dueAt - Date.now());
   const timer = setTimeout(() => {
     state.pendingTimers.delete(timer);
-    callback();
+    callback(dueAt);
   }, delay);
 
   state.pendingTimers.add(timer);

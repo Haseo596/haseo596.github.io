@@ -1,4 +1,4 @@
-import { els, field, reconnectDelayMs, state } from "./state.js";
+import { els, field, playbackDelayMs, reconnectDelayMs, state } from "./state.js";
 import {
   buildSnapshotUrl,
   buildWebSocketUrl,
@@ -307,7 +307,24 @@ function requestTimelineWindow() {
     return;
   }
 
-  sendClientMessage({ type: "timeline" });
+  const startedAtMs = Date.parse(state.info.startedAt || "");
+  if (Number.isFinite(startedAtMs)) {
+    const playbackMs = Math.max(0, Date.now() - startedAtMs - playbackDelayMs);
+    const overlapMs = Number(state.info.timeline?.overlapMs || 300);
+    const lookAheadMs = Number(state.info.timeline?.lookAheadMs || 2200);
+    const durationMs = Number(state.info.durationMs || 0);
+    const toMs = durationMs > 0
+      ? Math.min(durationMs, playbackMs + lookAheadMs)
+      : playbackMs + lookAheadMs;
+
+    sendClientMessage({
+      type: "timeline",
+      fromMs: Math.max(0, playbackMs - overlapMs),
+      toMs
+    });
+  } else {
+    sendClientMessage({ type: "timeline" });
+  }
 
   const intervalMs = Number(state.info.timeline?.chunkIntervalMs || 800);
   state.timelineRequestTimer = setTimeout(requestTimelineWindow, Math.max(250, intervalMs));
@@ -358,18 +375,22 @@ function adoptNormalizedFrame(frame, sourceType) {
     sourceType === "snapshot"
       ? Math.min(state.animationDurationMs, 700)
       : getTickAnimationDuration();
-  state.lastFrameTimeMs = Number.isFinite(frame.timeMs)
-    ? frame.timeMs
-    : state.lastFrameTimeMs;
+  if (sourceType === "timeline" || !state.usesTimeline) {
+    state.lastFrameTimeMs = Number.isFinite(frame.timeMs)
+      ? frame.timeMs
+      : state.lastFrameTimeMs;
+  }
 
-  if (sourceType === "snapshot") {
+  if (sourceType === "snapshot" && !state.usesTimeline) {
+    resetBallPhysicsFromFrame(frame);
+  } else if (sourceType === "timeline" && !state.ballPhysics) {
     resetBallPhysicsFromFrame(frame);
   }
 
   updateScore(frame.score);
   updateTick(frame.tick);
   updateRosters(frame.players);
-  if (sourceType !== "timeline") {
+  if (!state.usesTimeline && sourceType !== "timeline") {
     queueFrameEvents(frame, sourceType);
   }
 }

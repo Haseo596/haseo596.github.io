@@ -10,7 +10,7 @@ export function queueBallPhysicsEvents(events) {
     }
 
     state.physicsEventKeys.add(key);
-    scheduleAtMatchTime(event.timeMs, () => applyBallPhysicsEvent(event));
+    scheduleAtMatchTime(event.timeMs, (dueAt) => applyBallPhysicsEvent(event, dueAt));
   }
 }
 
@@ -58,6 +58,30 @@ export function projectBallPhysics(frame, visualPlayers, now) {
     };
   }
 
+  if (physics.mode === "attach_transition") {
+    const holder = findPlayer(visualPlayers, physics.holderPlayerId);
+    if (!holder) {
+      return null;
+    }
+
+    const t = clamp((now - physics.startedAt) / physics.durationMs, 0, 1);
+    if (t >= 1) {
+      state.ballPhysics = {
+        mode: "attached",
+        holderPlayerId: physics.holderPlayerId,
+        lane: holder.lane,
+        column: holder.column
+      };
+    }
+
+    return {
+      ...frame.ball,
+      holderPlayerId: physics.holderPlayerId,
+      lane: physics.fromLane + (holder.lane - physics.fromLane) * t,
+      column: physics.fromColumn + (holder.column - physics.fromColumn) * t
+    };
+  }
+
   if (physics.mode === "free") {
     return {
       ...frame.ball,
@@ -74,14 +98,15 @@ export function projectBallPhysics(frame, visualPlayers, now) {
   };
 }
 
-function applyBallPhysicsEvent(event) {
+function applyBallPhysicsEvent(event, dueAt) {
   const kind = String(event.kind || "");
 
   if (kind === "ball_impulse") {
+    const lateByMs = Math.max(0, Date.now() - dueAt);
     state.ballPhysics = {
       mode: "free",
       holderPlayerId: null,
-      startedAt: performance.now(),
+      startedAt: performance.now() - lateByMs,
       lane: finiteNumber(event.lane, 1),
       column: finiteNumber(event.column, 3),
       velocityLane: finiteNumber(event.velocityLane, 0),
@@ -92,9 +117,14 @@ function applyBallPhysicsEvent(event) {
   }
 
   if (kind === "ball_attach") {
+    const from = currentBallPosition();
     state.ballPhysics = {
-      mode: "attached",
+      mode: "attach_transition",
       holderPlayerId: normalizeId(event.playerId ?? event.actorId),
+      startedAt: performance.now(),
+      durationMs: 160,
+      fromLane: from.lane,
+      fromColumn: from.column,
       lane: finiteNumber(event.lane, 1),
       column: finiteNumber(event.column, 3)
     };
@@ -109,6 +139,22 @@ function applyBallPhysicsEvent(event) {
       column: finiteNumber(event.column, 3)
     };
   }
+}
+
+function currentBallPosition() {
+  const physics = state.ballPhysics;
+  if (!physics) {
+    return { lane: 1, column: 3 };
+  }
+
+  if (physics.mode === "free") {
+    return projectFreeBall(physics, performance.now());
+  }
+
+  return {
+    lane: finiteNumber(physics.lane, 1),
+    column: finiteNumber(physics.column, 3)
+  };
 }
 
 function projectFreeBall(physics, now) {
