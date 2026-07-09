@@ -192,12 +192,15 @@ function resetMatchView() {
   state.lastFrameTimeMs = -1;
   state.ballPhysics = null;
   state.events = [];
+  state.playerMotion.clear();
   state.eventKeys.clear();
   state.effectKeys.clear();
   state.scheduledFrameKeys.clear();
+  state.playerMotionKeys.clear();
   state.physicsEventKeys.clear();
   state.timelineEventKeys.clear();
   state.timelineFrames = [];
+  state.playerMotions = [];
   state.timelineEvents = [];
   state.physicsEvents = [];
   els.events.replaceChildren();
@@ -335,6 +338,7 @@ function requestTimelineWindow() {
 
 function adoptTimeline(message) {
   mergeTimelineFrames((message.frames || []).map(normalizeFrame));
+  mergePlayerMotions(message.motions || []);
   queueTimelineEvents(message.events || []);
   queueBallPhysicsEvents(message.physics || []);
 }
@@ -354,10 +358,56 @@ function mergeTimelineFrames(frames) {
   pruneTimelineBuffers();
 }
 
+function mergePlayerMotions(motions) {
+  for (const motion of motions || []) {
+    const normalized = normalizePlayerMotion(motion);
+    if (!normalized) {
+      continue;
+    }
+
+    const key = normalized.key;
+    if (state.playerMotionKeys.has(key)) {
+      continue;
+    }
+
+    state.playerMotionKeys.add(key);
+    state.playerMotions.push(normalized);
+  }
+
+  state.playerMotions.sort((left, right) => left.fromMs - right.fromMs);
+}
+
+function normalizePlayerMotion(motion) {
+  const fromMs = Number(motion.fromMs);
+  const toMs = Number(motion.toMs);
+  const playerId = motion.playerId ?? motion.id;
+  if (!Number.isFinite(fromMs) ||
+      !Number.isFinite(toMs) ||
+      playerId === null ||
+      playerId === undefined) {
+    return null;
+  }
+
+  return {
+    key: String(motion.key || `${playerId}:${fromMs}:${toMs}:${motion.fromLane},${motion.fromColumn}:${motion.toLane},${motion.toColumn}`),
+    playerId,
+    fromMs,
+    toMs: Math.max(fromMs + 1, toMs),
+    fromLane: Number(motion.fromLane || 0),
+    fromColumn: Number(motion.fromColumn || 0),
+    toLane: Number(motion.toLane || 0),
+    toColumn: Number(motion.toColumn || 0),
+    team: motion.team || null,
+    role: motion.role || null,
+    hasBall: Boolean(motion.hasBall)
+  };
+}
+
 function pruneTimelineBuffers() {
   const keepAfterMs = Math.max(0, getPlaybackTimeMs() - getTimelineRetentionMs());
 
   state.timelineFrames = state.timelineFrames.filter((frame) => frameTime(frame) >= keepAfterMs);
+  state.playerMotions = state.playerMotions.filter((motion) => motion.toMs >= keepAfterMs);
   state.timelineEvents = state.timelineEvents.filter((event) => eventTime(event) >= keepAfterMs);
   state.physicsEvents = state.physicsEvents.filter((event) => eventTime(event) >= keepAfterMs);
 }

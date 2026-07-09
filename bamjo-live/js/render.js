@@ -21,13 +21,14 @@ export function renderFrame(now) {
     ? getTimelineFrame(playbackTimeMs)
     : getInterpolatedFrame(now);
   if (frame) {
+    const visualFrame = state.usesTimeline ? continuousTimelineFrame(frame, playbackTimeMs, now) : frame;
     updateTick(frame.visualTick ?? frame.tick);
     updateScore(frame.score);
-    renderPlayers(frame);
+    renderPlayers(visualFrame);
     renderObjects(frame);
-    renderBall(frame);
+    renderBall(visualFrame);
     if (state.usesTimeline) {
-      flushTimelineEvents(playbackTimeMs, frame);
+      flushTimelineEvents(playbackTimeMs, visualFrame);
     }
   }
 }
@@ -80,7 +81,9 @@ export function getTimelineFrame(playbackTimeMs) {
   const nextTime = frameTime(next);
   const span = Math.max(1, nextTime - previousTime);
   const t = previous === next ? 0 : clamp((playbackTimeMs - previousTime) / span, 0, 1);
-  const players = interpolatePlayers(previous.players, next.players, t);
+  const players = state.playerMotions.length > 0
+    ? timelineMotionPlayers(previous.players, next.players, previousTime, playbackTimeMs, t)
+    : interpolatePlayers(previous.players, next.players, t);
 
   const visualTick = lerp(previous.tick, next.tick, t);
 
@@ -196,11 +199,9 @@ export function setCustomFieldImage(value) {
 }
 
 function interpolateBall(previousFrame, targetFrame, visualPlayers, t, now) {
-  if (!state.usesTimeline) {
-    const physicsBall = projectBallPhysics(targetFrame, visualPlayers, now);
-    if (physicsBall) {
-      return physicsBall;
-    }
+  const physicsBall = projectBallPhysics(targetFrame, visualPlayers, now);
+  if (physicsBall) {
+    return physicsBall;
   }
 
   const previousBall = previousFrame.ball || targetFrame.ball;
@@ -237,6 +238,204 @@ function interpolateBall(previousFrame, targetFrame, visualPlayers, t, now) {
     holderPlayerId: catching ? null : targetFrame.ball.holderPlayerId,
     lane: lerp(previousBall.lane, targetFrame.ball.lane, t),
     column: lerp(previousBall.column, targetFrame.ball.column, t)
+  };
+}
+
+function continuousTimelineFrame(frame, playbackTimeMs, now) {
+  const players = state.playerMotions.length > 0
+    ? ambientPlayers(frame.players, playbackTimeMs, now)
+    : continuousPlayers(frame.players, now);
+  return {
+    ...frame,
+    players,
+    ball: attachHeldBall(frame.ball, players)
+  };
+}
+
+function timelineMotionPlayers(previousPlayers, targetPlayers, previousTimeMs, playbackTimeMs, fallbackT) {
+  const fallbackPlayers = interpolatePlayers(previousPlayers, targetPlayers, fallbackT);
+  const fallbackMap = new Map(fallbackPlayers.map((player) => [String(player.id), player]));
+
+  return targetPlayers.map((player) => {
+    const fallback = fallbackMap.get(String(player.id)) || player;
+    const motion = playerMotionAt(player.id, previousTimeMs, playbackTimeMs);
+    if (!motion) {
+      return fallback;
+    }
+
+    const position = motionPosition(motion, playbackTimeMs);
+    const offset = playerCellOffset(fallback);
+    return {
+      ...fallback,
+      lane: clamp(position.lane + offset.lane, -0.22, 2.22),
+      column: clamp(position.column + offset.column, -0.22, 6.22)
+    };
+  });
+}
+
+function playerMotionAt(playerId, previousTimeMs, playbackTimeMs) {
+  const id = String(playerId);
+  let latest = null;
+
+  for (const motion of state.playerMotions) {
+    if (motion.fromMs > playbackTimeMs) {
+      break;
+    }
+    if (String(motion.playerId) !== id) {
+      continue;
+    }
+
+    latest = motion;
+    if (motion.toMs >= playbackTimeMs) {
+      return motion;
+    }
+  }
+
+  if (!latest || latest.toMs < previousTimeMs) {
+    return null;
+  }
+
+  return latest;
+}
+
+function motionPosition(motion, playbackTimeMs) {
+  const duration = Math.max(1, motion.toMs - motion.fromMs);
+  const t = clamp((playbackTimeMs - motion.fromMs) / duration, 0, 1);
+  const laneDelta = motion.toLane - motion.fromLane;
+  const columnDelta = motion.toColumn - motion.fromColumn;
+  const distance = Math.hypot(laneDelta, columnDelta);
+  let lane = lerp(motion.fromLane, motion.toLane, t);
+  let column = lerp(motion.fromColumn, motion.toColumn, t);
+
+  if (distance > 0.01 && t > 0 && t < 1) {
+    const side = stableSide(motion.playerId);
+    const curve = Math.sin(Math.PI * t) * Math.min(0.16, distance * 0.055) * side;
+    lane += (-columnDelta / distance) * curve;
+    column += (laneDelta / distance) * curve;
+  }
+
+  return { lane, column };
+}
+
+function ambientPlayers(players, playbackTimeMs, now) {
+  const seconds = now / 1000;
+  return players.map((player) => {
+    const activeMotion = playerMotionAt(player.id, playbackTimeMs - 1, playbackTimeMs);
+    const drift = activeMotion && activeMotion.toMs >= playbackTimeMs
+      ? { lane: 0, column: 0 }
+      : idleDrift(player, seconds, 0);
+
+    return {
+      ...player,
+      lane: clamp(player.lane + drift.lane, -0.22, 2.22),
+      column: clamp(player.column + drift.column, -0.22, 6.22)
+    };
+  });
+}
+
+function continuousPlayers(players, now) {
+  const present = new Set();
+  const seconds = now / 1000;
+  const visualPlayers = players.map((player) => {
+    const key = String(player.id);
+    present.add(key);
+
+    let motion = state.playerMotion.get(key);
+    if (!motion) {
+      motion = {
+        lane: player.lane,
+        column: player.column,
+        updatedAt: now
+      };
+      state.playerMotion.set(key, motion);
+    }
+
+    const dt = clamp((now - motion.updatedAt) / 1000, 0, 0.12);
+    motion.updatedAt = now;
+
+    const laneDelta = player.lane - motion.lane;
+    const columnDelta = player.column - motion.column;
+    const distance = Math.hypot(laneDelta, columnDelta);
+    if (distance > 3.2 || !Number.isFinite(distance)) {
+      motion.lane = player.lane;
+      motion.column = player.column;
+    } else if (dt > 0) {
+      const tau = responseTime(player);
+      const alpha = 1 - Math.exp(-dt / tau);
+      motion.lane += laneDelta * alpha;
+      motion.column += columnDelta * alpha;
+    }
+
+    const drift = idleDrift(player, seconds, distance);
+    return {
+      ...player,
+      lane: clamp(motion.lane + drift.lane, -0.22, 2.22),
+      column: clamp(motion.column + drift.column, -0.22, 6.22)
+    };
+  });
+
+  for (const key of state.playerMotion.keys()) {
+    if (!present.has(key)) {
+      state.playerMotion.delete(key);
+    }
+  }
+
+  return visualPlayers;
+}
+
+function responseTime(player) {
+  const seed = hashId(player.id);
+  const variation = 0.78 + ((seed % 31) / 100);
+  if (player.hasBall) {
+    return 0.24 * variation;
+  }
+
+  const role = String(player.role || "");
+  if (role === "GK") {
+    return 0.74 * variation;
+  }
+  if (role === "MOB") {
+    return 0.86 * variation;
+  }
+  if (role === "FWD") {
+    return 1.02 * variation;
+  }
+
+  return 1.14 * variation;
+}
+
+function idleDrift(player, seconds, distanceToTarget) {
+  const seed = hashId(player.id);
+  const phase = (seed % 997) / 997 * Math.PI * 2;
+  const nearTarget = 1 - clamp(distanceToTarget / 0.55, 0, 1);
+  const role = String(player.role || "");
+  const base = player.hasBall
+    ? 0.006
+    : role === "GK"
+      ? 0.012
+      : 0.035;
+
+  const amplitude = base * nearTarget;
+  return {
+    lane: Math.sin(seconds * (0.78 + (seed % 7) * 0.03) + phase) * amplitude,
+    column: Math.cos(seconds * (0.64 + (seed % 5) * 0.04) + phase * 0.7) * amplitude * 1.25
+  };
+}
+
+function attachHeldBall(ball, players) {
+  if (ball?.holderPlayerId === null || ball?.holderPlayerId === undefined) {
+    return ball;
+  }
+
+  const holder = findPlayer(players, ball.holderPlayerId);
+  if (!holder) {
+    return ball;
+  }
+
+  return {
+    ...ball,
+    lane: holder.lane,
+    column: holder.column
   };
 }
 
