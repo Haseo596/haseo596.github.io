@@ -1,9 +1,10 @@
 import { field } from "./state.js";
 
-export function cellToPercent(lane, column) {
+export function cellToPercent(lane, column, options = {}) {
+  const overflow = Number(options.overflow || 0);
   return {
-    x: ((clamp(column, 0, field.columns - 1) + 0.5) / field.columns) * 100,
-    y: ((clamp(lane, 0, field.lanes - 1) + 0.5) / field.lanes) * 100
+    x: ((clamp(column, -overflow, field.columns - 1 + overflow) + 0.5) / field.columns) * 100,
+    y: ((clamp(lane, -overflow, field.lanes - 1 + overflow) + 0.5) / field.lanes) * 100
   };
 }
 

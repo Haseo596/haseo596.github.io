@@ -42,15 +42,7 @@ export function getInterpolatedFrame(now) {
   }
 
   const t = clamp((now - state.animationStartedAt) / state.animationDurationMs, 0, 1);
-  const previousPlayers = new Map(state.previousFrame.players.map((player) => [String(player.id), player]));
-  const players = state.targetFrame.players.map((player) => {
-    const previous = previousPlayers.get(String(player.id)) || player;
-    return {
-      ...player,
-      lane: lerp(previous.lane, player.lane, t),
-      column: lerp(previous.column, player.column, t)
-    };
-  });
+  const players = interpolatePlayers(state.previousFrame.players, state.targetFrame.players, t);
 
   const visualTick = lerp(state.previousFrame.tick, state.targetFrame.tick, t);
 
@@ -88,15 +80,7 @@ export function getTimelineFrame(playbackTimeMs) {
   const nextTime = frameTime(next);
   const span = Math.max(1, nextTime - previousTime);
   const t = previous === next ? 0 : clamp((playbackTimeMs - previousTime) / span, 0, 1);
-  const previousPlayers = new Map(previous.players.map((player) => [String(player.id), player]));
-  const players = next.players.map((player) => {
-    const oldPlayer = previousPlayers.get(String(player.id)) || player;
-    return {
-      ...player,
-      lane: lerp(oldPlayer.lane, player.lane, t),
-      column: lerp(oldPlayer.column, player.column, t)
-    };
-  });
+  const players = interpolatePlayers(previous.players, next.players, t);
 
   const visualTick = lerp(previous.tick, next.tick, t);
 
@@ -256,6 +240,86 @@ function interpolateBall(previousFrame, targetFrame, visualPlayers, t, now) {
   };
 }
 
+function interpolatePlayers(previousPlayers, targetPlayers, t) {
+  const previousMap = new Map(previousPlayers.map((player) => [String(player.id), player]));
+  const eased = smoothStep(t);
+
+  return targetPlayers.map((player) => {
+    const previous = previousMap.get(String(player.id)) || player;
+    return playerVisualPosition(previous, player, eased, t);
+  });
+}
+
+function playerVisualPosition(previous, target, eased, rawT) {
+  const laneDelta = target.lane - previous.lane;
+  const columnDelta = target.column - previous.column;
+  const distance = Math.hypot(laneDelta, columnDelta);
+  const offset = playerCellOffset(target);
+  let lane = lerp(previous.lane, target.lane, eased);
+  let column = lerp(previous.column, target.column, eased);
+
+  if (distance > 0.01) {
+    const side = stableSide(target.id);
+    const curveStrength = (previous.hasBall || target.hasBall) ? 0.06 : 0.16;
+    const curve = Math.sin(Math.PI * rawT) * Math.min(0.22, distance * curveStrength) * side;
+    lane += (-columnDelta / distance) * curve;
+    column += (laneDelta / distance) * curve;
+  }
+
+  lane += offset.lane;
+  column += offset.column;
+
+  return {
+    ...target,
+    lane: clamp(lane, -0.18, 2.18),
+    column: clamp(column, -0.18, 6.18)
+  };
+}
+
+function playerCellOffset(player) {
+  const seed = hashId(player.id);
+  const laneJitter = (((seed % 101) / 100) - 0.5) * 0.18;
+  const columnJitter = ((((Math.floor(seed / 101) % 101) / 100) - 0.5) * 0.16);
+  const role = String(player.role || "");
+
+  if (role === "GK") {
+    return { lane: laneJitter * 0.45, column: columnJitter * 0.35 };
+  }
+
+  if (role === "DEF") {
+    return { lane: laneJitter, column: columnJitter - teamDirection(player.team) * 0.04 };
+  }
+
+  if (role === "FWD") {
+    return { lane: laneJitter, column: columnJitter + teamDirection(player.team) * 0.06 };
+  }
+
+  return { lane: laneJitter * 1.15, column: columnJitter };
+}
+
+function teamDirection(team) {
+  return team === "blue" ? -1 : 1;
+}
+
+function stableSide(id) {
+  return hashId(id) % 2 === 0 ? 1 : -1;
+}
+
+function hashId(id) {
+  const text = String(id ?? "");
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+  }
+
+  return hash || 1;
+}
+
+function smoothStep(t) {
+  const value = clamp(t, 0, 1);
+  return value * value * (3 - 2 * value);
+}
+
 function frameTime(frame) {
   const time = Number(frame.timeMs);
   if (Number.isFinite(time)) {
@@ -280,7 +344,7 @@ function renderPlayers(frame) {
       els.playersLayer.appendChild(el);
     }
 
-    const position = cellToPercent(player.lane, player.column);
+    const position = cellToPercent(player.lane, player.column, { overflow: 0.2 });
     const hasControlledBall = isBallAtPlayer(frame.ball, player);
     el.style.left = `${position.x}%`;
     el.style.top = `${position.y}%`;
@@ -329,7 +393,7 @@ function renderObjects(frame) {
 }
 
 function renderBall(frame) {
-  const position = cellToPercent(frame.ball.lane, frame.ball.column);
+  const position = cellToPercent(frame.ball.lane, frame.ball.column, { overflow: 0.48 });
   els.ball.style.setProperty("--ball-x", `${position.x}%`);
   els.ball.style.setProperty("--ball-y", `${position.y}%`);
 }
