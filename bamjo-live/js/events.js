@@ -125,15 +125,7 @@ function spawnEffectOnce(event, frame) {
 }
 
 function shouldSpawnEffect(event) {
-  return event.kind === "ability" ||
-    event.kind === "object_created" ||
-    event.kind === "shot" ||
-    event.kind === "pass" ||
-    event.kind === "goal" ||
-    event.kind === "save" ||
-    event.kind === "interception" ||
-    event.kind === "tackle" ||
-    event.kind === "repick";
+  return false;
 }
 
 function spawnEffect(event, frame) {

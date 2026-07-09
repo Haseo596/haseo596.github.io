@@ -350,6 +350,7 @@ h1 {
 
 .effectsLayer {
   z-index: 12;
+  display: none;
 }
 
 .player,
