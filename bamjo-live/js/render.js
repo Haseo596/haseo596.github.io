@@ -212,9 +212,11 @@ export function setCustomFieldImage(value) {
 }
 
 function interpolateBall(previousFrame, targetFrame, visualPlayers, t, now) {
-  const physicsBall = projectBallPhysics(targetFrame, visualPlayers, now);
-  if (physicsBall) {
-    return physicsBall;
+  if (!state.usesTimeline) {
+    const physicsBall = projectBallPhysics(targetFrame, visualPlayers, now);
+    if (physicsBall) {
+      return physicsBall;
+    }
   }
 
   const previousBall = previousFrame.ball || targetFrame.ball;
