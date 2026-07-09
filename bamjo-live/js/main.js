@@ -341,7 +341,7 @@ function adoptTimeline(message) {
 
 function mergeTimelineFrames(frames) {
   for (const frame of frames) {
-    const key = String(frame.timeMs ?? frame.tick);
+    const key = String(frame.key ?? frame.timeMs ?? frame.tick);
     if (state.scheduledFrameKeys.has(key)) {
       continue;
     }

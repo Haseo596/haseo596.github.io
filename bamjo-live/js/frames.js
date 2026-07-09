@@ -2,6 +2,7 @@ import { normalizeId } from "./utils.js";
 
 export function normalizeFrame(message) {
   return {
+    key: message.key || null,
     tick: Number(message.tick || 0),
     timeMs: finiteNumberOrNull(message.timeMs),
     status: message.status || "running",
