@@ -314,8 +314,7 @@ function requestTimelineWindow() {
   const startedAtMs = Date.parse(state.info.startedAt || "");
   if (Number.isFinite(startedAtMs)) {
     const playbackMs = getPlaybackTimeMs();
-    const overlapMs = Number(state.info.timeline?.overlapMs || 300);
-    const lookAheadMs = Number(state.info.timeline?.lookAheadMs || 2200);
+    const { overlapMs, lookAheadMs } = getTimelineWindowConfig();
     const durationMs = Number(state.info.durationMs || 0);
     const toMs = durationMs > 0
       ? Math.min(durationMs, playbackMs + lookAheadMs)
@@ -330,7 +329,7 @@ function requestTimelineWindow() {
     sendClientMessage({ type: "timeline" });
   }
 
-  const intervalMs = Number(state.info.timeline?.chunkIntervalMs || 800);
+  const intervalMs = Math.min(Number(state.info.timeline?.chunkIntervalMs || 700), 700);
   state.timelineRequestTimer = setTimeout(requestTimelineWindow, Math.max(250, intervalMs));
 }
 
@@ -356,11 +355,31 @@ function mergeTimelineFrames(frames) {
 }
 
 function pruneTimelineBuffers() {
-  const keepAfterMs = Math.max(0, getPlaybackTimeMs() - 5000);
+  const keepAfterMs = Math.max(0, getPlaybackTimeMs() - getTimelineRetentionMs());
 
   state.timelineFrames = state.timelineFrames.filter((frame) => frameTime(frame) >= keepAfterMs);
   state.timelineEvents = state.timelineEvents.filter((event) => eventTime(event) >= keepAfterMs);
   state.physicsEvents = state.physicsEvents.filter((event) => eventTime(event) >= keepAfterMs);
+}
+
+function getTimelineWindowConfig() {
+  const tickDurationMs = getTimelineTickDurationMs();
+  const serverOverlapMs = Number(state.info?.timeline?.overlapMs || 0);
+  const serverLookAheadMs = Number(state.info?.timeline?.lookAheadMs || 0);
+
+  return {
+    overlapMs: Math.max(serverOverlapMs, Math.ceil(tickDurationMs * 1.5), 3500),
+    lookAheadMs: Math.max(serverLookAheadMs, Math.ceil(tickDurationMs * 3.5), 9000)
+  };
+}
+
+function getTimelineRetentionMs() {
+  const tickDurationMs = getTimelineTickDurationMs();
+  return Math.max(15000, Math.ceil(tickDurationMs * 5));
+}
+
+function getTimelineTickDurationMs() {
+  return Math.max(1, Number(state.info?.tickDurationMs || state.animationDurationMs || 2800));
 }
 
 function frameTime(frame) {

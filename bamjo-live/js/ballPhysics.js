@@ -1,7 +1,8 @@
 import { field, state } from "./state.js";
 import { clamp, findPlayer, normalizeId, trimSet } from "./utils.js";
 
-const attachTransitionMs = 180;
+const attachTransitionMs = 240;
+const stopTransitionMs = 160;
 
 export function queueBallPhysicsEvents(events) {
   for (const event of events || []) {
@@ -112,13 +113,33 @@ function projectFromEvent(event, previous, visualPlayers, playbackTimeMs) {
     const t = clamp(elapsed / attachTransitionMs, 0, 1);
 
     return {
-      holderPlayerId: holderId,
+      holderPlayerId: null,
       lane: from.lane + (target.lane - from.lane) * t,
       column: from.column + (target.column - from.column) * t
     };
   }
 
-  if (event.kind === "ball_stop" || event.kind === "ball_teleport") {
+  if (event.kind === "ball_stop") {
+    const elapsed = Math.max(0, playbackTimeMs - event.timeMs);
+    if (previous && elapsed < stopTransitionMs) {
+      const from = projectFromEvent(previous, null, visualPlayers, event.timeMs);
+      const t = clamp(elapsed / stopTransitionMs, 0, 1);
+
+      return {
+        holderPlayerId: null,
+        lane: from.lane + (event.lane - from.lane) * t,
+        column: from.column + (event.column - from.column) * t
+      };
+    }
+
+    return {
+      holderPlayerId: null,
+      lane: event.lane,
+      column: event.column
+    };
+  }
+
+  if (event.kind === "ball_teleport") {
     return {
       holderPlayerId: null,
       lane: event.lane,
