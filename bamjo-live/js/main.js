@@ -8,7 +8,7 @@ import {
   replaceCurrentQuery
 } from "./network.js";
 import { normalizeFrame } from "./frames.js";
-import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js";
+import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.3.7";
 import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js";
 import { getPlaybackTimeMs } from "./timeline.js";
 import {
@@ -23,7 +23,7 @@ import {
   updateScore,
   updateServerTime,
   updateTick
-} from "./render.js";
+} from "./render.js?v=0.3.7";
 
 init();
 requestAnimationFrame(render);

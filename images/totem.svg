@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Tauren totem">
+  <defs>
+    <linearGradient id="wood" x1="22" y1="16" x2="108" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8b7658"/>
+      <stop offset=".28" stop-color="#3b2f26"/>
+      <stop offset=".52" stop-color="#171411"/>
+      <stop offset=".74" stop-color="#6a553d"/>
+      <stop offset="1" stop-color="#c5ad7a"/>
+    </linearGradient>
+    <linearGradient id="side" x1="16" y1="38" x2="103" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5a4634"/>
+      <stop offset=".55" stop-color="#171310"/>
+      <stop offset="1" stop-color="#2d241d"/>
+    </linearGradient>
+    <linearGradient id="band" x1="34" y1="54" x2="98" y2="76" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4c3928"/>
+      <stop offset=".12" stop-color="#e4cf95"/>
+      <stop offset=".42" stop-color="#8d6b35"/>
+      <stop offset=".72" stop-color="#f1dfa2"/>
+      <stop offset="1" stop-color="#5a432c"/>
+    </linearGradient>
+    <radialGradient id="cut" cx="50%" cy="45%" r="60%">
+      <stop offset="0" stop-color="#060505"/>
+      <stop offset=".75" stop-color="#14100d"/>
+      <stop offset="1" stop-color="#2c2118"/>
+    </radialGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#000" flood-opacity=".45"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#softShadow)">
+    <path d="M18 39 72 17 113 55 58 111 13 73Z" fill="url(#side)"/>
+    <path d="M22 34 76 15 112 52 56 101 15 67Z" fill="url(#wood)"/>
+    <path d="M22 34 76 15 112 52 56 101 15 67Z" fill="none" stroke="#d9c691" stroke-width="3.5" stroke-linejoin="round" opacity=".72"/>
+    <path d="M27 39 76 22 104 52 55 94 22 66Z" fill="none" stroke="#17110d" stroke-width="4" stroke-linejoin="round" opacity=".68"/>
+
+    <path d="M39 32 57 25 48 50 31 57Z" fill="url(#cut)" opacity=".92"/>
+    <path d="M80 30 101 51 78 58 63 43Z" fill="url(#cut)" opacity=".94"/>
+    <path d="M35 76 55 61 66 78 48 93Z" fill="url(#cut)" opacity=".96"/>
+    <path d="M72 70 93 60 84 84 63 95Z" fill="url(#cut)" opacity=".88"/>
+
+    <path d="M31 59 78 42 99 58 51 79Z" fill="url(#band)"/>
+    <path d="M35 61 79 47 92 58 49 75Z" fill="none" stroke="#271d14" stroke-width="3" stroke-linejoin="round" opacity=".65"/>
+    <path d="M47 55 59 51 67 69 55 74Z" fill="#ead79d" opacity=".78"/>
+    <path d="M70 47 82 44 91 58 78 63Z" fill="#342315" opacity=".62"/>
+
+    <path d="M36 37 74 23 102 51" fill="none" stroke="#f0e0aa" stroke-width="2.4" stroke-linecap="round" opacity=".52"/>
+    <path d="M25 68 55 92 96 58" fill="none" stroke="#b9955f" stroke-width="2.2" stroke-linecap="round" opacity=".42"/>
+
+    <path d="M54 25C48 43 48 54 58 67" fill="none" stroke="#cbb57c" stroke-width="2" stroke-linecap="round" opacity=".38"/>
+    <path d="M83 32C74 47 72 65 78 85" fill="none" stroke="#2b211a" stroke-width="2" stroke-linecap="round" opacity=".55"/>
+    <path d="M43 78C56 75 68 70 83 62" fill="none" stroke="#e6d39b" stroke-width="2" stroke-linecap="round" opacity=".24"/>
+  </g>
+</svg>
