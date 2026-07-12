@@ -1,5 +1,5 @@
-import { normalizeId } from "./utils.js?v=0.5.3";
-import { field } from "./state.js?v=0.5.3";
+import { normalizeId } from "./utils.js?v=0.5.4";
+import { field } from "./state.js?v=0.5.4";
 
 export function normalizeFrame(message) {
   const legacyGrid = usesLegacyGridCoordinates(message);
@@ -56,12 +56,23 @@ export function normalizeFrame(message) {
       kind: String(event.kind || "event"),
       team: event.team || null,
       actor: event.actor || null,
+      actorId: normalizeId(event.actorId ?? event.ActorId),
       hero: event.hero || null,
       offset: finiteNumberOrNull(event.offset),
       timeMs: finiteNumberOrNull(event.timeMs),
       text: String(event.text || ""),
       lane: normalizeNullableCoordinate(readCoordinate(event, "lane"), "lane", legacyGrid),
       column: normalizeNullableCoordinate(readCoordinate(event, "column"), "column", legacyGrid),
+      actorLane: normalizeNullableCoordinate(
+        finiteNumberOrNull(event.actorLane ?? event.ActorLane),
+        "lane",
+        legacyGrid
+      ),
+      actorColumn: normalizeNullableCoordinate(
+        finiteNumberOrNull(event.actorColumn ?? event.ActorColumn),
+        "column",
+        legacyGrid
+      ),
       tags: (event.tags || []).map((tag) => String(tag)),
       visible: event.visible !== false
     }))

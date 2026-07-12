@@ -1,4 +1,4 @@
-import { els, field, reconnectDelayMs, state } from "./state.js?v=0.5.3";
+import { els, field, reconnectDelayMs, state } from "./state.js?v=0.5.4";
 import {
   buildSnapshotUrl,
   buildWebSocketUrl,
@@ -6,11 +6,11 @@ import {
   normalizeWebSocketBase,
   readWebSocketSource,
   replaceCurrentQuery
-} from "./network.js?v=0.5.3";
-import { normalizeFrame } from "./frames.js?v=0.5.3";
-import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.5.3";
-import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js?v=0.5.3";
-import { getPlaybackTimeMs } from "./timeline.js?v=0.5.3";
+} from "./network.js?v=0.5.4";
+import { normalizeFrame } from "./frames.js?v=0.5.4";
+import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.5.4";
+import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js?v=0.5.4";
+import { getPlaybackTimeMs } from "./timeline.js?v=0.5.4";
 import {
   getInterpolatedFrame,
   getStatusCode,
@@ -23,7 +23,7 @@ import {
   updateScore,
   updateServerTime,
   updateTick
-} from "./render.js?v=0.5.3";
+} from "./render.js?v=0.5.4";
 
 init();
 requestAnimationFrame(render);

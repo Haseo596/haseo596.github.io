@@ -1,5 +1,5 @@
-import { els, maxEvents, state } from "./state.js?v=0.5.3";
-import { cellToPercent, formatMatchTime, teamColor, trimSet } from "./utils.js?v=0.5.3";
+import { els, maxEvents, state } from "./state.js?v=0.5.4";
+import { cellToPercent, formatMatchTime, teamColor, trimSet } from "./utils.js?v=0.5.4";
 
 export function queueFrameEvents(frame, sourceType) {
   for (const event of frame.events) {
@@ -125,11 +125,18 @@ function spawnEffectOnce(event, frame) {
 }
 
 function shouldSpawnEffect(event) {
-  return false;
+  return String(event.hero || "").toLowerCase() === "gohor" &&
+    hasTag(event, "gohor_projectile");
 }
 
 function spawnEffect(event, frame) {
   if (!els.effectsLayer) {
+    return;
+  }
+
+  if (String(event.hero || "").toLowerCase() === "gohor" &&
+      hasTag(event, "gohor_projectile")) {
+    spawnGohorProjectile(event, frame);
     return;
   }
 
@@ -142,6 +149,44 @@ function spawnEffect(event, frame) {
   el.style.setProperty("--team-color", event.team ? teamColor(event.team) : "var(--gold)");
   els.effectsLayer.appendChild(el);
   setTimeout(() => el.remove(), effectDuration(event));
+}
+
+function spawnGohorProjectile(event, frame) {
+  const start = actorPoint(event, frame);
+  const end = effectPoint(event, frame);
+  const from = cellToPercent(start.lane, start.column);
+  const to = cellToPercent(end.lane, end.column);
+  const distance = Math.hypot(end.lane - start.lane, end.column - start.column);
+  const durationMs = Math.round(Math.max(280, Math.min(900, distance / 58 * 1000)));
+  const el = document.createElement("div");
+  el.className = `gohorProjectile ${hasTag(event, "speed") ? "speed" : "slow"}`;
+  el.style.setProperty("--from-x", `${from.x}%`);
+  el.style.setProperty("--from-y", `${from.y}%`);
+  el.style.setProperty("--to-x", `${to.x}%`);
+  el.style.setProperty("--to-y", `${to.y}%`);
+  el.style.setProperty("--flight-duration", `${durationMs}ms`);
+  els.effectsLayer.appendChild(el);
+  setTimeout(() => el.remove(), durationMs + 80);
+}
+
+function actorPoint(event, frame) {
+  if (event.actorLane !== null && event.actorLane !== undefined &&
+      event.actorColumn !== null && event.actorColumn !== undefined &&
+      Number.isFinite(Number(event.actorLane)) &&
+      Number.isFinite(Number(event.actorColumn))) {
+    return {
+      lane: Number(event.actorLane),
+      column: Number(event.actorColumn)
+    };
+  }
+
+  const actor = frame.players.find((player) =>
+    event.actorId !== null && event.actorId !== undefined
+      ? String(player.id) === String(event.actorId)
+      : event.actor && player.nickname === event.actor);
+  return actor
+    ? { lane: actor.lane, column: actor.column }
+    : effectPoint(event, frame);
 }
 
 function effectPoint(event, frame) {
