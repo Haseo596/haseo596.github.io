@@ -1,7 +1,7 @@
-import { els, state, tickAnimationStretch } from "./state.js?v=0.5.1";
-import { projectBallPhysics } from "./ballPhysics.js?v=0.5.1";
-import { flushTimelineEvents } from "./events.js?v=0.5.1";
-import { getPlaybackTimeMs } from "./timeline.js?v=0.5.1";
+import { els, field, state, tickAnimationStretch } from "./state.js?v=0.5.2";
+import { projectBallPhysics } from "./ballPhysics.js?v=0.5.2";
+import { flushTimelineEvents } from "./events.js?v=0.5.2";
+import { getPlaybackTimeMs } from "./timeline.js?v=0.5.2";
 import {
   cellToPercent,
   clamp,
@@ -12,7 +12,7 @@ import {
   heroImage,
   lerp,
   teamColor
-} from "./utils.js?v=0.5.1";
+} from "./utils.js?v=0.5.2";
 
 export function renderFrame(now) {
   updateMatchStatus();
@@ -335,8 +335,8 @@ function timelineMotionPlayers(previousPlayers, targetPlayers, previousTimeMs, p
 
     return {
       ...fallback,
-      lane: clamp(sampled.lane, -0.22, 2.22),
-      column: clamp(sampled.column, -0.22, 6.22)
+      lane: clampFieldLane(sampled.lane, 0.22),
+      column: clampFieldColumn(sampled.column, 0.22)
     };
   });
 }
@@ -576,8 +576,8 @@ function continuousPlayers(players, now) {
     const drift = idleDrift(player, seconds, distance);
     return {
       ...player,
-      lane: clamp(motion.lane + drift.lane, -0.22, 2.22),
-      column: clamp(motion.column + drift.column, -0.22, 6.22)
+      lane: clampFieldLane(motion.lane + drift.lane, 0.22),
+      column: clampFieldColumn(motion.column + drift.column, 0.22)
     };
   });
 
@@ -663,8 +663,8 @@ function interpolatePlayersLinear(previousPlayers, targetPlayers, t) {
     const previous = previousMap.get(String(player.id)) || player;
     return {
       ...player,
-      lane: clamp(lerp(previous.lane, player.lane, t), -0.18, 2.18),
-      column: clamp(lerp(previous.column, player.column, t), -0.18, 6.18)
+      lane: clampFieldLane(lerp(previous.lane, player.lane, t), 0.18),
+      column: clampFieldColumn(lerp(previous.column, player.column, t), 0.18)
     };
   });
 }
@@ -690,9 +690,21 @@ function playerVisualPosition(previous, target, eased, rawT) {
 
   return {
     ...target,
-    lane: clamp(lane, -0.18, 2.18),
-    column: clamp(column, -0.18, 6.18)
+    lane: clampFieldLane(lane, 0.18),
+    column: clampFieldColumn(column, 0.18)
   };
+}
+
+function clampFieldLane(value, overflow = 0) {
+  const unit = field.coordinateMode === "continuous" ? field.lanes / 3 : 1;
+  const maximum = field.coordinateMode === "continuous" ? field.lanes : field.lanes - 1;
+  return clamp(value, -overflow * unit, maximum + overflow * unit);
+}
+
+function clampFieldColumn(value, overflow = 0) {
+  const unit = field.coordinateMode === "continuous" ? field.columns / 7 : 1;
+  const maximum = field.coordinateMode === "continuous" ? field.columns : field.columns - 1;
+  return clamp(value, -overflow * unit, maximum + overflow * unit);
 }
 
 function playerCellOffset(player) {

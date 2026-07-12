@@ -1,5 +1,5 @@
-import { normalizeId } from "./utils.js?v=0.5.1";
-import { field } from "./state.js?v=0.5.1";
+import { normalizeId } from "./utils.js?v=0.5.2";
+import { field } from "./state.js?v=0.5.2";
 
 export function normalizeFrame(message) {
   const legacyGrid = usesLegacyGridCoordinates(message);
