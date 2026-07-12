@@ -1,7 +1,16 @@
-import { field } from "./state.js";
+import { field } from "./state.js?v=0.5.0";
 
 export function cellToPercent(lane, column, options = {}) {
   const overflow = Number(options.overflow || 0);
+  if (field.coordinateMode === "continuous") {
+    const laneOverflow = overflow * (field.lanes / 3);
+    const columnOverflow = overflow * (field.columns / 7);
+    return {
+      x: (clamp(column, -columnOverflow, field.columns + columnOverflow) / field.columns) * 100,
+      y: (clamp(lane, -laneOverflow, field.lanes + laneOverflow) / field.lanes) * 100
+    };
+  }
+
   return {
     x: ((clamp(column, -overflow, field.columns - 1 + overflow) + 0.5) / field.columns) * 100,
     y: ((clamp(lane, -overflow, field.lanes - 1 + overflow) + 0.5) / field.lanes) * 100

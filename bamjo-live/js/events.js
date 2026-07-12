@@ -1,5 +1,5 @@
-import { els, maxEvents, state } from "./state.js";
-import { cellToPercent, formatMatchTime, teamColor, trimSet } from "./utils.js";
+import { els, maxEvents, state } from "./state.js?v=0.5.0";
+import { cellToPercent, formatMatchTime, teamColor, trimSet } from "./utils.js?v=0.5.0";
 
 export function queueFrameEvents(frame, sourceType) {
   for (const event of frame.events) {

@@ -1,4 +1,4 @@
-import { playbackDelayMs, state } from "./state.js";
+import { playbackDelayMs, state } from "./state.js?v=0.5.0";
 
 export function getPlaybackTimeMs() {
   const startedAtMs = Date.parse(state.info?.startedAt || "");

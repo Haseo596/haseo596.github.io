@@ -1,4 +1,4 @@
-import { normalizeId } from "./utils.js";
+import { normalizeId } from "./utils.js?v=0.5.0";
 
 export function normalizeFrame(message) {
   return {
