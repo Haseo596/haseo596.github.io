@@ -29,6 +29,7 @@ export const state = {
   socket: null,
   reconnectTimer: null,
   timelineRequestTimer: null,
+  timelineRequestInFlight: false,
   playbackTimeMs: 0,
   playbackLastNow: 0,
   playbackInitialized: false,

@@ -1,4 +1,4 @@
-import { els, field, reconnectDelayMs, state } from "./state.js?v=0.5.2";
+import { els, field, reconnectDelayMs, state } from "./state.js?v=0.5.3";
 import {
   buildSnapshotUrl,
   buildWebSocketUrl,
@@ -6,11 +6,11 @@ import {
   normalizeWebSocketBase,
   readWebSocketSource,
   replaceCurrentQuery
-} from "./network.js?v=0.5.2";
-import { normalizeFrame } from "./frames.js?v=0.5.2";
-import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.5.2";
-import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js?v=0.5.2";
-import { getPlaybackTimeMs } from "./timeline.js?v=0.5.2";
+} from "./network.js?v=0.5.3";
+import { normalizeFrame } from "./frames.js?v=0.5.3";
+import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.5.3";
+import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js?v=0.5.3";
+import { getPlaybackTimeMs } from "./timeline.js?v=0.5.3";
 import {
   getInterpolatedFrame,
   getStatusCode,
@@ -23,7 +23,7 @@ import {
   updateScore,
   updateServerTime,
   updateTick
-} from "./render.js?v=0.5.2";
+} from "./render.js?v=0.5.3";
 
 init();
 requestAnimationFrame(render);
@@ -122,6 +122,7 @@ function openSocket(url, attemptId = state.connectionAttempt) {
   state.socket = socket;
 
   socket.addEventListener("open", () => {
+    state.timelineRequestInFlight = false;
     setStatus("Подключено");
     els.connectButton.disabled = false;
     sendClientMessage({ type: "resume" });
@@ -140,6 +141,7 @@ function openSocket(url, attemptId = state.connectionAttempt) {
   });
 
   socket.addEventListener("close", () => {
+    state.timelineRequestInFlight = false;
     if (attemptId !== state.connectionAttempt) {
       return;
     }
@@ -155,6 +157,7 @@ function openSocket(url, attemptId = state.connectionAttempt) {
   });
 
   socket.addEventListener("error", () => {
+    state.timelineRequestInFlight = false;
     setStatus("Ошибка подключения");
   });
 }
@@ -162,12 +165,16 @@ function openSocket(url, attemptId = state.connectionAttempt) {
 function sendClientMessage(message) {
   if (state.socket && state.socket.readyState === WebSocket.OPEN) {
     state.socket.send(JSON.stringify(message));
+    return true;
   }
+
+  return false;
 }
 
 function closeCurrentSocket() {
   clearTimeout(state.reconnectTimer);
   clearTimeout(state.timelineRequestTimer);
+  state.timelineRequestInFlight = false;
   state.shouldReconnect = false;
 
   if (state.socket) {
@@ -185,6 +192,7 @@ function resetMatchView() {
   state.pendingTimers.clear();
   clearTimeout(state.timelineRequestTimer);
   state.timelineRequestTimer = null;
+  state.timelineRequestInFlight = false;
   state.playbackTimeMs = 0;
   state.playbackLastNow = 0;
   state.playbackInitialized = false;
@@ -273,12 +281,14 @@ function handleServerMessage(message) {
       break;
 
     case "timeline":
+      state.timelineRequestInFlight = false;
       updateServerTime(message.serverTime);
       setPhase(message.status);
       adoptTimeline(message);
       break;
 
     case "finished":
+      state.timelineRequestInFlight = false;
       updateServerTime(message.serverTime);
       setPhase("finished");
       setStatus("МАТЧ ОКОНЧЕН");
@@ -293,6 +303,7 @@ function handleServerMessage(message) {
       break;
 
     case "error":
+      state.timelineRequestInFlight = false;
       if (message.code === "match_not_found") {
         closeCurrentSocket();
         setStatus("Матч не найден");
@@ -320,26 +331,57 @@ function requestTimelineWindow() {
     return;
   }
 
+  scheduleNextTimelineRequest();
+
+  if (state.timelineRequestInFlight) {
+    return;
+  }
+
   const startedAtMs = Date.parse(state.info.startedAt || "");
   if (Number.isFinite(startedAtMs)) {
     const playbackMs = getPlaybackTimeMs();
     const { overlapMs, lookAheadMs } = getTimelineWindowConfig();
     const durationMs = Number(state.info.durationMs || 0);
+    const bufferedUntilMs = getBufferedUntilMs();
     const toMs = durationMs > 0
       ? Math.min(durationMs, playbackMs + lookAheadMs)
       : playbackMs + lookAheadMs;
 
-    sendClientMessage({
+    if (bufferedUntilMs >= toMs - getBufferRefillThresholdMs(lookAheadMs)) {
+      return;
+    }
+
+    const fromMs = bufferedUntilMs < 0
+      ? Math.max(0, playbackMs - overlapMs)
+      : Math.max(0, bufferedUntilMs - overlapMs);
+    if (toMs <= fromMs) {
+      return;
+    }
+
+    state.timelineRequestInFlight = sendClientMessage({
       type: "timeline",
-      fromMs: Math.max(0, playbackMs - overlapMs),
+      fromMs,
       toMs
     });
   } else {
-    sendClientMessage({ type: "timeline" });
+    state.timelineRequestInFlight = sendClientMessage({ type: "timeline" });
   }
+}
 
+function scheduleNextTimelineRequest() {
   const intervalMs = Math.min(Number(state.info.timeline?.chunkIntervalMs || 700), 700);
   state.timelineRequestTimer = setTimeout(requestTimelineWindow, Math.max(250, intervalMs));
+}
+
+function getBufferedUntilMs() {
+  const frames = state.visualFrames.length > 0
+    ? state.visualFrames
+    : state.timelineFrames;
+  return frames.length === 0 ? -1 : frameTime(frames[frames.length - 1]);
+}
+
+function getBufferRefillThresholdMs(lookAheadMs) {
+  return Math.max(1200, Math.min(2500, lookAheadMs * 0.4));
 }
 
 function adoptTimeline(message) {
@@ -439,13 +481,12 @@ function pruneTimelineBuffers() {
 }
 
 function getTimelineWindowConfig() {
-  const tickDurationMs = getTimelineTickDurationMs();
   const serverOverlapMs = Number(state.info?.timeline?.overlapMs || 0);
   const serverLookAheadMs = Number(state.info?.timeline?.lookAheadMs || 0);
 
   return {
-    overlapMs: Math.max(serverOverlapMs, Math.ceil(tickDurationMs * 1.5), 3500),
-    lookAheadMs: Math.max(serverLookAheadMs, Math.ceil(tickDurationMs * 3.5), 9000)
+    overlapMs: Math.max(serverOverlapMs, 300),
+    lookAheadMs: Math.max(serverLookAheadMs, 5000)
   };
 }
 
