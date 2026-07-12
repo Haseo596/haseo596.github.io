@@ -1,7 +1,7 @@
-import { els, state, tickAnimationStretch } from "./state.js?v=0.5.0";
-import { projectBallPhysics } from "./ballPhysics.js?v=0.5.0";
-import { flushTimelineEvents } from "./events.js?v=0.5.0";
-import { getPlaybackTimeMs } from "./timeline.js?v=0.5.0";
+import { els, state, tickAnimationStretch } from "./state.js?v=0.5.1";
+import { projectBallPhysics } from "./ballPhysics.js?v=0.5.1";
+import { flushTimelineEvents } from "./events.js?v=0.5.1";
+import { getPlaybackTimeMs } from "./timeline.js?v=0.5.1";
 import {
   cellToPercent,
   clamp,
@@ -12,7 +12,7 @@ import {
   heroImage,
   lerp,
   teamColor
-} from "./utils.js?v=0.5.0";
+} from "./utils.js?v=0.5.1";
 
 export function renderFrame(now) {
   updateMatchStatus();

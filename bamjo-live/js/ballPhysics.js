@@ -1,5 +1,5 @@
-import { field, state } from "./state.js?v=0.5.0";
-import { clamp, findPlayer, normalizeId, trimSet } from "./utils.js?v=0.5.0";
+import { field, state } from "./state.js?v=0.5.1";
+import { clamp, findPlayer, normalizeId, trimSet } from "./utils.js?v=0.5.1";
 
 const attachTransitionMs = 240;
 const stopTransitionMs = 160;
