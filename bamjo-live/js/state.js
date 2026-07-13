@@ -20,6 +20,8 @@ export const els = {
   objectsLayer: document.getElementById("objectsLayer"),
   effectsLayer: document.getElementById("effectsLayer"),
   ball: document.getElementById("ball"),
+  goalOverlay: document.getElementById("goalOverlay"),
+  goalScorer: document.getElementById("goalScorer"),
   matchEndOverlay: document.getElementById("matchEndOverlay"),
   matchEndScore: document.getElementById("matchEndScore"),
   redRoster: document.getElementById("redRoster"),
@@ -56,6 +58,7 @@ export const state = {
   visualFrameKeys: new Set(),
   playerMotionKeys: new Set(),
   timelineEventKeys: new Set(),
+  goalEventKeys: new Set(),
   physicsEventKeys: new Set(),
   pendingTimers: new Set(),
   ballPhysics: null,
@@ -63,6 +66,7 @@ export const state = {
   timelineFrames: [],
   playerMotions: [],
   timelineEvents: [],
+  goalEvents: [],
   physicsEvents: [],
   events: []
 };

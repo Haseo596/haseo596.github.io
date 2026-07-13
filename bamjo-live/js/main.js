@@ -1,4 +1,4 @@
-import { els, field, reconnectDelayMs, state } from "./state.js?v=0.5.5";
+import { els, field, reconnectDelayMs, state } from "./state.js?v=0.5.6";
 import {
   buildSnapshotUrl,
   buildWebSocketUrl,
@@ -6,11 +6,11 @@ import {
   normalizeWebSocketBase,
   readWebSocketSource,
   replaceCurrentQuery
-} from "./network.js?v=0.5.5";
-import { normalizeFrame } from "./frames.js?v=0.5.5";
-import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.5.5";
-import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js?v=0.5.5";
-import { getPlaybackTimeMs } from "./timeline.js?v=0.5.5";
+} from "./network.js?v=0.5.6";
+import { normalizeFrame } from "./frames.js?v=0.5.6";
+import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.5.6";
+import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js?v=0.5.6";
+import { getPlaybackTimeMs } from "./timeline.js?v=0.5.6";
 import {
   getInterpolatedFrame,
   getStatusCode,
@@ -23,7 +23,7 @@ import {
   updateScore,
   updateServerTime,
   updateTick
-} from "./render.js?v=0.5.5";
+} from "./render.js?v=0.5.6";
 
 init();
 requestAnimationFrame(render);
@@ -213,13 +213,18 @@ function resetMatchView() {
   state.playerMotionKeys.clear();
   state.physicsEventKeys.clear();
   state.timelineEventKeys.clear();
+  state.goalEventKeys.clear();
   state.visualFrames = [];
   state.timelineFrames = [];
   state.playerMotions = [];
   state.timelineEvents = [];
+  state.goalEvents = [];
   state.physicsEvents = [];
   els.events.replaceChildren();
   els.effectsLayer?.replaceChildren();
+  if (els.goalOverlay) {
+    els.goalOverlay.hidden = true;
+  }
   if (els.matchEndOverlay) {
     els.matchEndOverlay.hidden = true;
   }

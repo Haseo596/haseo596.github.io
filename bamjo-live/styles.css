@@ -412,6 +412,39 @@ h1 {
   z-index: 20;
 }
 
+.goalOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 29;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  pointer-events: none;
+  color: #fff;
+  background: rgba(4, 10, 8, 0.24);
+  text-align: center;
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.92);
+}
+
+.goalOverlay[hidden] {
+  display: none;
+}
+
+.goalOverlay strong {
+  font-size: 64px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.goalOverlay span {
+  max-width: min(90%, 720px);
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
 .matchEndOverlay {
   position: absolute;
   inset: 0;
@@ -494,7 +527,7 @@ h1 {
   inset: 13%;
   border: 0;
   border-radius: 0;
-  background: url("../images/totem.svg?v=0.5.5") center / contain no-repeat;
+  background: url("../images/totem.svg?v=0.5.6") center / contain no-repeat;
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55));
 }
 
@@ -1012,5 +1045,13 @@ h1 {
 
   .matchEndOverlay span {
     font-size: 34px;
+  }
+
+  .goalOverlay strong {
+    font-size: 42px;
+  }
+
+  .goalOverlay span {
+    font-size: 20px;
   }
 }

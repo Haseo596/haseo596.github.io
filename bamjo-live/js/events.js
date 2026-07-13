@@ -1,5 +1,5 @@
-import { els, maxEvents, state } from "./state.js?v=0.5.5";
-import { cellToPercent, formatMatchTime, teamColor, trimSet } from "./utils.js?v=0.5.5";
+import { els, maxEvents, state } from "./state.js?v=0.5.6";
+import { cellToPercent, formatMatchTime, teamColor, trimSet } from "./utils.js?v=0.5.6";
 
 export function queueFrameEvents(frame, sourceType) {
   for (const event of frame.events) {
@@ -27,10 +27,25 @@ export function queueTimelineEvents(events) {
 
     state.timelineEventKeys.add(key);
     state.timelineEvents.push(event);
+    rememberGoalEvent(event, key);
   }
 
   state.timelineEvents.sort((left, right) => eventTime(left) - eventTime(right));
   trimSet(state.timelineEventKeys, 300);
+}
+
+function rememberGoalEvent(event, key) {
+  if (event.kind !== "goal" || state.goalEventKeys.has(key)) {
+    return;
+  }
+
+  state.goalEventKeys.add(key);
+  state.goalEvents.push(event);
+  state.goalEvents.sort((left, right) => eventTime(left) - eventTime(right));
+  if (state.goalEvents.length > 24) {
+    state.goalEvents.splice(0, state.goalEvents.length - 24);
+  }
+  trimSet(state.goalEventKeys, 64);
 }
 
 export function flushTimelineEvents(playbackTimeMs, frame) {

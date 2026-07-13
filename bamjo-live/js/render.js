@@ -1,7 +1,7 @@
-import { els, field, state, tickAnimationStretch } from "./state.js?v=0.5.5";
-import { projectBallPhysics } from "./ballPhysics.js?v=0.5.5";
-import { flushTimelineEvents } from "./events.js?v=0.5.5";
-import { getPlaybackTimeMs } from "./timeline.js?v=0.5.5";
+import { els, field, state, tickAnimationStretch } from "./state.js?v=0.5.6";
+import { projectBallPhysics } from "./ballPhysics.js?v=0.5.6";
+import { flushTimelineEvents } from "./events.js?v=0.5.6";
+import { getPlaybackTimeMs } from "./timeline.js?v=0.5.6";
 import {
   cellToPercent,
   clamp,
@@ -12,7 +12,7 @@ import {
   heroImage,
   lerp,
   teamColor
-} from "./utils.js?v=0.5.5";
+} from "./utils.js?v=0.5.6";
 
 export function renderFrame(now) {
   const playbackTimeMs = state.usesTimeline ? getPlaybackTimeMs() : null;
@@ -32,6 +32,7 @@ export function renderFrame(now) {
     }
   }
 
+  updateGoalOverlay(playbackTimeMs);
   updateMatchEndOverlay(playbackTimeMs, frame?.score);
 }
 
@@ -232,6 +233,43 @@ export function getStatusCode() {
   }
 
   return state.targetFrame?.status || state.info?.status || "";
+}
+
+function updateGoalOverlay(playbackTimeMs) {
+  if (!els.goalOverlay || !state.usesTimeline || hasPlaybackEnded(playbackTimeMs)) {
+    if (els.goalOverlay) {
+      els.goalOverlay.hidden = true;
+    }
+    return;
+  }
+
+  const currentTimeMs = Number(playbackTimeMs || 0);
+  const celebrationMs = Math.max(
+    0,
+    Number(state.info?.timeline?.goalCelebrationMs || 2000)
+  );
+  let activeGoal = null;
+  for (const goal of state.goalEvents) {
+    const goalTimeMs = Number(goal.timeMs);
+    if (!Number.isFinite(goalTimeMs) || goalTimeMs > currentTimeMs) {
+      break;
+    }
+    if (currentTimeMs < goalTimeMs + celebrationMs) {
+      activeGoal = goal;
+    }
+  }
+
+  els.goalOverlay.hidden = activeGoal === null;
+  if (activeGoal === null) {
+    return;
+  }
+
+  const teamName = activeGoal.team === "red"
+    ? "красных"
+    : activeGoal.team === "blue"
+      ? "синих"
+      : "своей команды";
+  els.goalScorer.textContent = `Забивает ${activeGoal.actor || "Кто-то"} за ${teamName}.`;
 }
 
 function updateMatchEndOverlay(playbackTimeMs, frameScore) {
