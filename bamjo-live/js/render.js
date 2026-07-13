@@ -1,7 +1,7 @@
-import { els, field, state, tickAnimationStretch } from "./state.js?v=0.5.4";
-import { projectBallPhysics } from "./ballPhysics.js?v=0.5.4";
-import { flushTimelineEvents } from "./events.js?v=0.5.4";
-import { getPlaybackTimeMs } from "./timeline.js?v=0.5.4";
+import { els, field, state, tickAnimationStretch } from "./state.js?v=0.5.5";
+import { projectBallPhysics } from "./ballPhysics.js?v=0.5.5";
+import { flushTimelineEvents } from "./events.js?v=0.5.5";
+import { getPlaybackTimeMs } from "./timeline.js?v=0.5.5";
 import {
   cellToPercent,
   clamp,
@@ -12,11 +12,11 @@ import {
   heroImage,
   lerp,
   teamColor
-} from "./utils.js?v=0.5.4";
+} from "./utils.js?v=0.5.5";
 
 export function renderFrame(now) {
-  updateMatchStatus();
   const playbackTimeMs = state.usesTimeline ? getPlaybackTimeMs() : null;
+  updateMatchStatus(playbackTimeMs);
   const frame = state.usesTimeline
     ? getTimelineFrame(playbackTimeMs)
     : getInterpolatedFrame(now);
@@ -31,6 +31,8 @@ export function renderFrame(now) {
       flushTimelineEvents(playbackTimeMs, visualFrame);
     }
   }
+
+  updateMatchEndOverlay(playbackTimeMs, frame?.score);
 }
 
 export function getInterpolatedFrame(now) {
@@ -128,7 +130,7 @@ function getVisualTimelineFrame(playbackTimeMs) {
     visualTick,
     visual: true,
     players,
-    ball: interpolateVisualBall(previous.ball, next.ball, players, t)
+    ball: interpolateVisualBall(previous.ball, next.ball, t)
   };
 }
 
@@ -181,10 +183,13 @@ export function updateServerTime(value) {
   }
 }
 
-export function updateMatchStatus() {
+export function updateMatchStatus(playbackTimeMs = null) {
   const status = getStatusCode();
   if (status === "finished") {
-    setStatus("МАТЧ ОКОНЧЕН");
+    if (hasPlaybackEnded(playbackTimeMs)) {
+      setStatus("МАТЧ ОКОНЧЕН");
+      setPhase("finished");
+    }
     return;
   }
 
@@ -222,7 +227,35 @@ export function setPhase(status) {
 }
 
 export function getStatusCode() {
+  if (state.serverFinished || state.info?.status === "finished") {
+    return "finished";
+  }
+
   return state.targetFrame?.status || state.info?.status || "";
+}
+
+function updateMatchEndOverlay(playbackTimeMs, frameScore) {
+  if (!els.matchEndOverlay) {
+    return;
+  }
+
+  const visible = getStatusCode() === "finished" && hasPlaybackEnded(playbackTimeMs);
+  els.matchEndOverlay.hidden = !visible;
+  if (!visible) {
+    return;
+  }
+
+  const score = state.finalScore || frameScore || { red: 0, blue: 0 };
+  els.matchEndScore.textContent = `${Number(score.red || 0)}:${Number(score.blue || 0)}`;
+}
+
+function hasPlaybackEnded(playbackTimeMs) {
+  if (!state.usesTimeline) {
+    return true;
+  }
+
+  const durationMs = getMatchDurationMs();
+  return Number(playbackTimeMs || 0) >= durationMs - 1;
 }
 
 export function setCustomFieldImage(value) {
@@ -249,26 +282,16 @@ function interpolateBall(previousFrame, targetFrame, visualPlayers, t, now) {
   if (targetHolderId !== null &&
       previousHolderId !== null &&
       String(previousHolderId) === String(targetHolderId)) {
-    const holder = findPlayer(visualPlayers, targetHolderId);
-    if (holder) {
-      return {
-        ...targetFrame.ball,
-        lane: holder.lane,
-        column: holder.column
-      };
-    }
+    return {
+      ...targetFrame.ball,
+      lane: lerp(previousBall.lane, targetFrame.ball.lane, t),
+      column: lerp(previousBall.column, targetFrame.ball.column, t)
+    };
   }
 
   const catching = targetHolderId !== null && String(previousHolderId) !== String(targetHolderId);
   if (catching && t >= 0.88) {
-    const holder = findPlayer(visualPlayers, targetHolderId);
-    if (holder) {
-      return {
-        ...targetFrame.ball,
-        lane: holder.lane,
-        column: holder.column
-      };
-    }
+    return targetFrame.ball;
   }
 
   return {
@@ -286,11 +309,11 @@ function continuousTimelineFrame(frame) {
 
   return {
     ...frame,
-    ball: attachHeldBall(frame.ball, frame.players)
+    ball: frame.ball
   };
 }
 
-function interpolateVisualBall(previousBall, targetBall, visualPlayers, t) {
+function interpolateVisualBall(previousBall, targetBall, t) {
   const previousHolderId = previousBall?.holderPlayerId;
   const targetHolderId = targetBall?.holderPlayerId;
   const sameHolder =
@@ -299,17 +322,6 @@ function interpolateVisualBall(previousBall, targetBall, visualPlayers, t) {
     targetHolderId !== null &&
     targetHolderId !== undefined &&
     String(previousHolderId) === String(targetHolderId);
-
-  if (sameHolder) {
-    const holder = findPlayer(visualPlayers, targetHolderId);
-    if (holder) {
-      return {
-        ...targetBall,
-        lane: holder.lane,
-        column: holder.column
-      };
-    }
-  }
 
   return {
     ...targetBall,
@@ -422,12 +434,12 @@ function motionPosition(motion, playbackTimeMs) {
 
 function projectTimelineBall(frame, visualPlayers, playbackTimeMs) {
   if (!frame?.ball || state.physicsEvents.length === 0) {
-    return attachHeldBall(frame?.ball, visualPlayers);
+    return frame?.ball;
   }
 
   const eventIndex = timelineBallEventIndex(playbackTimeMs);
   if (eventIndex < 0) {
-    return attachHeldBall(frame.ball, visualPlayers);
+    return frame.ball;
   }
 
   const event = state.physicsEvents[eventIndex];
@@ -439,11 +451,12 @@ function projectTimelineBall(frame, visualPlayers, playbackTimeMs) {
     const holderId = event.playerId ?? event.actorId;
     const holder = findPlayer(visualPlayers, holderId);
     if (holder) {
+      const point = heldBallPoint(holder, frame.ball);
       return {
         ...frame.ball,
         holderPlayerId: holder.id,
-        lane: holder.lane,
-        column: holder.column
+        lane: point.lane,
+        column: point.column
       };
     }
   }
@@ -457,7 +470,7 @@ function projectTimelineBall(frame, visualPlayers, playbackTimeMs) {
     };
   }
 
-  return attachHeldBall(frame.ball, visualPlayers);
+  return frame.ball;
 }
 
 function timelineBallFlight(ball, visualPlayers, startEvent, playbackTimeMs) {
@@ -629,20 +642,17 @@ function idleDrift(player, seconds, distanceToTarget) {
   };
 }
 
-function attachHeldBall(ball, players) {
-  if (ball?.holderPlayerId === null || ball?.holderPlayerId === undefined) {
-    return ball;
+function heldBallPoint(holder, fallbackBall) {
+  if (Number.isFinite(fallbackBall?.lane) && Number.isFinite(fallbackBall?.column)) {
+    return { lane: fallbackBall.lane, column: fallbackBall.column };
   }
 
-  const holder = findPlayer(players, ball.holderPlayerId);
-  if (!holder) {
-    return ball;
-  }
-
+  const length = Math.hypot(Number(holder.facingLane || 0), Number(holder.facingColumn || 0));
+  const direction = holder.team === "blue" ? -1 : 1;
+  const offset = field.coordinateMode === "continuous" ? 1.5 : 0.12;
   return {
-    ...ball,
-    lane: holder.lane,
-    column: holder.column
+    lane: holder.lane + (length > 0.01 ? holder.facingLane / length : 0) * offset,
+    column: holder.column + (length > 0.01 ? holder.facingColumn / length : direction) * offset
   };
 }
 

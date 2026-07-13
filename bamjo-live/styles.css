@@ -412,6 +412,37 @@ h1 {
   z-index: 20;
 }
 
+.matchEndOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  pointer-events: none;
+  color: #fff;
+  background: rgba(4, 10, 8, 0.54);
+  text-align: center;
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.9);
+}
+
+.matchEndOverlay[hidden] {
+  display: none;
+}
+
+.matchEndOverlay strong {
+  font-size: 52px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.matchEndOverlay span {
+  font-size: 46px;
+  font-weight: 900;
+  line-height: 1;
+}
+
 .ball::before {
   content: "";
   width: clamp(18px, 2.8vw, 30px);
@@ -463,7 +494,7 @@ h1 {
   inset: 13%;
   border: 0;
   border-radius: 0;
-  background: url("../images/totem.svg?v=0.5.4") center / contain no-repeat;
+  background: url("../images/totem.svg?v=0.5.5") center / contain no-repeat;
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55));
 }
 
@@ -973,5 +1004,13 @@ h1 {
 
   .playerIcon {
     width: 36px;
+  }
+
+  .matchEndOverlay strong {
+    font-size: 32px;
+  }
+
+  .matchEndOverlay span {
+    font-size: 34px;
   }
 }

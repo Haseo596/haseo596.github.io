@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Матч</title>
-  <link rel="stylesheet" href="./styles.css?v=0.5.4">
+  <link rel="stylesheet" href="./styles.css?v=0.5.5">
 </head>
 <body>
   <main class="app">
@@ -58,6 +58,10 @@
           <div id="playersLayer" class="layer"></div>
           <div id="effectsLayer" class="layer effectsLayer"></div>
           <div id="ball" class="ball" aria-label="Мяч"></div>
+          <div id="matchEndOverlay" class="matchEndOverlay" hidden>
+            <strong>Матч окончен!</strong>
+            <span id="matchEndScore">0:0</span>
+          </div>
         </div>
       </section>
 
@@ -82,8 +86,8 @@
       </aside>
     </section>
   </main>
-  <div class="viewerVersion" aria-label="Версия клиента">live v0.5.4</div>
+  <div class="viewerVersion" aria-label="Версия клиента">live v0.5.5</div>
 
-  <script type="module" src="./js/main.js?v=0.5.4"></script>
+  <script type="module" src="./js/main.js?v=0.5.5"></script>
 </body>
 </html>

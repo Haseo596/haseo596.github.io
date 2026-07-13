@@ -1,4 +1,4 @@
-import { els, field, reconnectDelayMs, state } from "./state.js?v=0.5.4";
+import { els, field, reconnectDelayMs, state } from "./state.js?v=0.5.5";
 import {
   buildSnapshotUrl,
   buildWebSocketUrl,
@@ -6,11 +6,11 @@ import {
   normalizeWebSocketBase,
   readWebSocketSource,
   replaceCurrentQuery
-} from "./network.js?v=0.5.4";
-import { normalizeFrame } from "./frames.js?v=0.5.4";
-import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.5.4";
-import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js?v=0.5.4";
-import { getPlaybackTimeMs } from "./timeline.js?v=0.5.4";
+} from "./network.js?v=0.5.5";
+import { normalizeFrame } from "./frames.js?v=0.5.5";
+import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.5.5";
+import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js?v=0.5.5";
+import { getPlaybackTimeMs } from "./timeline.js?v=0.5.5";
 import {
   getInterpolatedFrame,
   getStatusCode,
@@ -23,7 +23,7 @@ import {
   updateScore,
   updateServerTime,
   updateTick
-} from "./render.js?v=0.5.4";
+} from "./render.js?v=0.5.5";
 
 init();
 requestAnimationFrame(render);
@@ -196,6 +196,8 @@ function resetMatchView() {
   state.playbackTimeMs = 0;
   state.playbackLastNow = 0;
   state.playbackInitialized = false;
+  state.serverFinished = false;
+  state.finalScore = null;
   state.info = null;
   state.usesTimeline = false;
   state.previousFrame = null;
@@ -218,6 +220,9 @@ function resetMatchView() {
   state.physicsEvents = [];
   els.events.replaceChildren();
   els.effectsLayer?.replaceChildren();
+  if (els.matchEndOverlay) {
+    els.matchEndOverlay.hidden = true;
+  }
 }
 
 async function checkMatchAvailability(webSocketUrl) {
@@ -290,12 +295,15 @@ function handleServerMessage(message) {
     case "finished":
       state.timelineRequestInFlight = false;
       updateServerTime(message.serverTime);
-      setPhase("finished");
-      setStatus("МАТЧ ОКОНЧЕН");
+      mergeFinalVisualFrames(message);
+      state.serverFinished = true;
+      state.finalScore = message.score || null;
+      if (state.info) {
+        state.info = { ...state.info, status: "finished" };
+      }
+      queueTimelineEvents(message.events || []);
       state.shouldReconnect = false;
       clearTimeout(state.timelineRequestTimer);
-      updateScore(message.score);
-      updateTick(message.tick);
       break;
 
     case "pong":
@@ -347,7 +355,11 @@ function requestTimelineWindow() {
       ? Math.min(durationMs, playbackMs + lookAheadMs)
       : playbackMs + lookAheadMs;
 
-    if (bufferedUntilMs >= toMs - getBufferRefillThresholdMs(lookAheadMs)) {
+    const requestingFinalTail = durationMs > 0 &&
+      toMs >= durationMs &&
+      bufferedUntilMs < durationMs;
+    if (!requestingFinalTail &&
+        bufferedUntilMs >= toMs - getBufferRefillThresholdMs(lookAheadMs)) {
       return;
     }
 
@@ -393,6 +405,29 @@ function adoptTimeline(message) {
   }
 
   queueTimelineEvents(message.events || []);
+}
+
+function mergeFinalVisualFrames(message) {
+  const finalFrames = (message.visualFrames || []).map(normalizeFrame);
+  if (finalFrames.length > 0) {
+    mergeVisualFrames(finalFrames);
+    return;
+  }
+
+  const source = state.visualFrames[state.visualFrames.length - 1] || state.targetFrame;
+  const durationMs = Number(state.info?.durationMs || 0);
+  if (!source || durationMs <= 0) {
+    return;
+  }
+
+  mergeVisualFrames([{
+    ...source,
+    key: `visual:${durationMs}`,
+    timeMs: durationMs,
+    tick: Number(message.tick ?? state.info?.totalTicks ?? source.tick ?? 0),
+    status: "finished",
+    score: message.score || source.score
+  }]);
 }
 
 function mergeVisualFrames(frames) {

@@ -1,5 +1,5 @@
-import { normalizeId } from "./utils.js?v=0.5.4";
-import { field } from "./state.js?v=0.5.4";
+import { normalizeId } from "./utils.js?v=0.5.5";
+import { field } from "./state.js?v=0.5.5";
 
 export function normalizeFrame(message) {
   const legacyGrid = usesLegacyGridCoordinates(message);
@@ -41,6 +41,20 @@ export function normalizeFrame(message) {
       cardId: player.cardId || null,
       lane: normalizeCoordinate(readCoordinate(player, "lane"), "lane", legacyGrid),
       column: normalizeCoordinate(readCoordinate(player, "column"), "column", legacyGrid),
+      targetLane: normalizeNullableCoordinate(
+        finiteNumberOrNull(player.targetLane ?? player.TargetLane),
+        "lane",
+        legacyGrid
+      ),
+      targetColumn: normalizeNullableCoordinate(
+        finiteNumberOrNull(player.targetColumn ?? player.TargetColumn),
+        "column",
+        legacyGrid
+      ),
+      velocityLane: Number(player.velocityLane ?? player.VelocityLane ?? 0),
+      velocityColumn: Number(player.velocityColumn ?? player.VelocityColumn ?? 0),
+      facingLane: Number(player.facingLane ?? player.FacingLane ?? 0),
+      facingColumn: Number(player.facingColumn ?? player.FacingColumn ?? 0),
       hasBall: Boolean(player.hasBall)
     })),
     objects: (message.objects || []).map((object) => ({

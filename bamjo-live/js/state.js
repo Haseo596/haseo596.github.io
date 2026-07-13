@@ -20,6 +20,8 @@ export const els = {
   objectsLayer: document.getElementById("objectsLayer"),
   effectsLayer: document.getElementById("effectsLayer"),
   ball: document.getElementById("ball"),
+  matchEndOverlay: document.getElementById("matchEndOverlay"),
+  matchEndScore: document.getElementById("matchEndScore"),
   redRoster: document.getElementById("redRoster"),
   blueRoster: document.getElementById("blueRoster"),
   events: document.getElementById("events")
@@ -33,6 +35,8 @@ export const state = {
   playbackTimeMs: 0,
   playbackLastNow: 0,
   playbackInitialized: false,
+  serverFinished: false,
+  finalScore: null,
   shouldReconnect: false,
   info: null,
   usesTimeline: false,

@@ -1,4 +1,4 @@
-import { playbackDelayMs, state } from "./state.js?v=0.5.4";
+import { playbackDelayMs, state } from "./state.js?v=0.5.5";
 
 export function getPlaybackTimeMs() {
   const startedAtMs = Date.parse(state.info?.startedAt || "");
@@ -60,7 +60,9 @@ function getBufferedLimitMs() {
   }
 
   const lastFrameTime = Math.max(...frames.map(frameTime));
-  const holdBackMs = Math.max(180, Number(state.info?.timeline?.visualFrameIntervalMs || 100) * 2);
+  const holdBackMs = state.serverFinished
+    ? 0
+    : Math.max(180, Number(state.info?.timeline?.visualFrameIntervalMs || 100) * 2);
   return Math.max(0, lastFrameTime - holdBackMs);
 }
 
