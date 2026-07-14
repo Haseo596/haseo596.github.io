@@ -527,7 +527,7 @@ h1 {
   inset: 13%;
   border: 0;
   border-radius: 0;
-  background: url("../images/totem.svg?v=0.5.6") center / contain no-repeat;
+  background: url("../images/totem.svg?v=0.5.7") center / contain no-repeat;
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55));
 }
 
