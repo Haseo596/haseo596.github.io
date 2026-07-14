@@ -1,4 +1,4 @@
-import { playbackDelayMs, state } from "./state.js?v=0.5.7";
+import { playbackDelayMs, state } from "./state.js?v=0.5.8";
 
 export function getPlaybackTimeMs() {
   const startedAtMs = Date.parse(state.info?.startedAt || "");
@@ -18,7 +18,7 @@ export function getPlaybackTimeMs() {
     return state.playbackTimeMs;
   }
 
-  const deltaMs = Math.max(0, Math.min(80, now - state.playbackLastNow));
+  const deltaMs = Math.max(0, now - state.playbackLastNow);
   state.playbackLastNow = now;
 
   if (state.playbackTimeMs > targetMs + 120) {
