@@ -300,9 +300,10 @@ h1 {
 
 .goal {
   position: absolute;
-  top: 34%;
-  width: 2.4%;
-  height: 32%;
+  top: 50%;
+  width: 10.3175%;
+  height: 34.1463%;
+  transform: translateY(-50%);
   border: 2px solid rgba(255, 255, 255, 0.55);
   background: rgba(0, 0, 0, 0.2);
   z-index: 1;
@@ -527,7 +528,7 @@ h1 {
   inset: 13%;
   border: 0;
   border-radius: 0;
-  background: url("../images/totem.svg?v=0.5.8") center / contain no-repeat;
+  background: url("../images/totem.svg?v=0.5.9") center / contain no-repeat;
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55));
 }
 
