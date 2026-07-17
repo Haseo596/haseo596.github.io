@@ -1,5 +1,5 @@
 const coordinateUnitsPerWarcraftUnit = 100 / 4032;
-const goalDepth = 512 * coordinateUnitsPerWarcraftUnit;
+const goalDepth = 128 * coordinateUnitsPerWarcraftUnit;
 
 export const field = {
   lanes: 2624 * coordinateUnitsPerWarcraftUnit,
@@ -7,7 +7,7 @@ export const field = {
   coordinateMode: "continuous",
   aspectRatio: 4032 / 2624,
   playableColumns: 100 + goalDepth * 2,
-  playableAspectRatio: (4032 + 512 * 2) / 2624,
+  playableAspectRatio: (4032 + 128 * 2) / 2624,
   goalMouthHeight: 576 * coordinateUnitsPerWarcraftUnit,
   goalkeeperAreaDepth: 416 * coordinateUnitsPerWarcraftUnit,
   goalkeeperAreaHeight: 896 * coordinateUnitsPerWarcraftUnit,

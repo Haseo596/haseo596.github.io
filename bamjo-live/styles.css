@@ -41,12 +41,11 @@ input {
 }
 
 .app {
-  height: 100vh;
+  min-height: 100vh;
   padding: 20px;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 14px;
-  overflow: hidden;
 }
 
 .topbar,
@@ -260,13 +259,13 @@ h1 {
 }
 
 .pitch {
-  --field-aspect: 1.9268292683;
-  --field-inset: 10.1265822785%;
-  --field-width: 79.746835443%;
-  --goalkeeper-area-depth: 8.2278481013%;
+  --field-aspect: 1.6341463415;
+  --field-inset: 2.9850746269%;
+  --field-width: 94.0298507463%;
+  --goalkeeper-area-depth: 9.7014925373%;
   --goalkeeper-area-height: 34.1463414634%;
   --goal-mouth-within-area: 64.2857142857%;
-  --goal-interior-depth: 10.1265822785%;
+  --goal-interior-depth: 2.9850746269%;
   --goal-interior-height: 17.0731707317%;
   position: relative;
   min-height: 0;
@@ -573,7 +572,7 @@ h1 {
   inset: 13%;
   border: 0;
   border-radius: 0;
-  background: url("../images/totem.svg?v=0.5.11") center / contain no-repeat;
+  background: url("../images/totem.svg?v=0.5.12") center / contain no-repeat;
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55));
 }
 
