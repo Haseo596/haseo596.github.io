@@ -1,13 +1,18 @@
-const unitsPerWarcraftUnit = 1.5 / 100;
+const coordinateUnitsPerWarcraftUnit = 100 / 4032;
+const goalDepth = 512 * coordinateUnitsPerWarcraftUnit;
 
 export const field = {
-  lanes: 2624 * unitsPerWarcraftUnit,
-  columns: 4032 * unitsPerWarcraftUnit,
+  lanes: 2624 * coordinateUnitsPerWarcraftUnit,
+  columns: 100,
   coordinateMode: "continuous",
   aspectRatio: 4032 / 2624,
-  goalMouthHeight: 576 * unitsPerWarcraftUnit,
-  goalkeeperAreaDepth: 416 * unitsPerWarcraftUnit,
-  goalkeeperAreaHeight: 896 * unitsPerWarcraftUnit
+  playableColumns: 100 + goalDepth * 2,
+  playableAspectRatio: (4032 + 512 * 2) / 2624,
+  goalMouthHeight: 576 * coordinateUnitsPerWarcraftUnit,
+  goalkeeperAreaDepth: 416 * coordinateUnitsPerWarcraftUnit,
+  goalkeeperAreaHeight: 896 * coordinateUnitsPerWarcraftUnit,
+  goalDepth,
+  goalInteriorHeight: 448 * coordinateUnitsPerWarcraftUnit
 };
 export const maxEvents = 36;
 export const reconnectDelayMs = 2500;

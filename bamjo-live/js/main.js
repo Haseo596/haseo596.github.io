@@ -1,4 +1,4 @@
-import { els, field, reconnectDelayMs, state } from "./state.js?v=0.5.10";
+import { els, field, reconnectDelayMs, state } from "./state.js?v=0.5.11";
 import {
   buildSnapshotUrl,
   buildWebSocketUrl,
@@ -6,11 +6,11 @@ import {
   normalizeWebSocketBase,
   readWebSocketSource,
   replaceCurrentQuery
-} from "./network.js?v=0.5.10";
-import { normalizeFrame } from "./frames.js?v=0.5.10";
-import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.5.10";
-import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js?v=0.5.10";
-import { getPlaybackTimeMs } from "./timeline.js?v=0.5.10";
+} from "./network.js?v=0.5.11";
+import { normalizeFrame } from "./frames.js?v=0.5.11";
+import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.5.11";
+import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js?v=0.5.11";
+import { getPlaybackTimeMs } from "./timeline.js?v=0.5.11";
 import {
   getInterpolatedFrame,
   getStatusCode,
@@ -23,7 +23,7 @@ import {
   updateScore,
   updateServerTime,
   updateTick
-} from "./render.js?v=0.5.10";
+} from "./render.js?v=0.5.11";
 
 init();
 requestAnimationFrame(render);
@@ -342,6 +342,19 @@ function applyFieldGeometry(value = {}) {
     value.aspectRatio,
     field.columns / field.lanes
   );
+  field.goalDepth = positiveNumber(value.goalDepth, field.goalDepth);
+  field.goalInteriorHeight = positiveNumber(
+    value.goalInteriorHeight,
+    field.goalInteriorHeight
+  );
+  field.playableColumns = positiveNumber(
+    value.playableColumns,
+    field.columns + field.goalDepth * 2
+  );
+  field.playableAspectRatio = positiveNumber(
+    value.playableAspectRatio,
+    field.playableColumns / field.lanes
+  );
   field.goalMouthHeight = positiveNumber(
     value.goalMouthHeight,
     field.goalMouthHeight
@@ -355,10 +368,21 @@ function applyFieldGeometry(value = {}) {
     field.goalkeeperAreaHeight
   );
 
-  els.pitch.style.setProperty("--field-aspect", String(field.aspectRatio));
+  els.pitch.style.setProperty(
+    "--field-aspect",
+    String(field.playableAspectRatio)
+  );
+  els.pitch.style.setProperty(
+    "--field-inset",
+    `${field.goalDepth / field.playableColumns * 100}%`
+  );
+  els.pitch.style.setProperty(
+    "--field-width",
+    `${field.columns / field.playableColumns * 100}%`
+  );
   els.pitch.style.setProperty(
     "--goalkeeper-area-depth",
-    `${field.goalkeeperAreaDepth / field.columns * 100}%`
+    `${field.goalkeeperAreaDepth / field.playableColumns * 100}%`
   );
   els.pitch.style.setProperty(
     "--goalkeeper-area-height",
@@ -367,6 +391,14 @@ function applyFieldGeometry(value = {}) {
   els.pitch.style.setProperty(
     "--goal-mouth-within-area",
     `${field.goalMouthHeight / field.goalkeeperAreaHeight * 100}%`
+  );
+  els.pitch.style.setProperty(
+    "--goal-interior-depth",
+    `${field.goalDepth / field.playableColumns * 100}%`
+  );
+  els.pitch.style.setProperty(
+    "--goal-interior-height",
+    `${field.goalInteriorHeight / field.lanes * 100}%`
   );
 }
 

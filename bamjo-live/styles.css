@@ -260,15 +260,19 @@ h1 {
 }
 
 .pitch {
-  --field-aspect: 1.5365853659;
-  --goalkeeper-area-depth: 10.3174603175%;
+  --field-aspect: 1.9268292683;
+  --field-inset: 10.1265822785%;
+  --field-width: 79.746835443%;
+  --goalkeeper-area-depth: 8.2278481013%;
   --goalkeeper-area-height: 34.1463414634%;
   --goal-mouth-within-area: 64.2857142857%;
+  --goal-interior-depth: 10.1265822785%;
+  --goal-interior-height: 17.0731707317%;
   position: relative;
   min-height: 0;
   aspect-ratio: var(--field-aspect);
-  width: min(100%, calc((100vh - 235px) * var(--field-aspect)));
-  max-height: calc(100vh - 235px);
+  width: 100%;
+  max-height: none;
   align-self: center;
   justify-self: center;
   overflow: hidden;
@@ -286,6 +290,7 @@ h1 {
 }
 
 .pitch.customField::before,
+.pitch.customField .goalInterior,
 .pitch.customField .goal,
 .pitch.customField .centerLine,
 .pitch.customField .centerCircle {
@@ -295,8 +300,31 @@ h1 {
 .pitch::before {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: 0 var(--field-inset);
+  border-left: 2px solid rgba(255, 255, 255, 0.38);
+  border-right: 2px solid rgba(255, 255, 255, 0.38);
   pointer-events: none;
+}
+
+.goalInterior {
+  position: absolute;
+  top: 50%;
+  width: var(--goal-interior-depth);
+  height: var(--goal-interior-height);
+  transform: translateY(-50%);
+  border: 2px solid rgba(255, 255, 255, 0.62);
+  background: rgba(10, 16, 14, 0.46);
+  z-index: 1;
+}
+
+.redGoalInterior {
+  left: 0;
+  border-left: 0;
+}
+
+.blueGoalInterior {
+  right: 0;
+  border-right: 0;
 }
 
 .goal {
@@ -321,8 +349,7 @@ h1 {
 }
 
 .redGoal {
-  left: 0;
-  border-left: 0;
+  left: var(--field-inset);
 }
 
 .redGoal::after {
@@ -330,8 +357,7 @@ h1 {
 }
 
 .blueGoal {
-  right: 0;
-  border-right: 0;
+  right: var(--field-inset);
 }
 
 .blueGoal::after {
@@ -547,7 +573,7 @@ h1 {
   inset: 13%;
   border: 0;
   border-radius: 0;
-  background: url("../images/totem.svg?v=0.5.10") center / contain no-repeat;
+  background: url("../images/totem.svg?v=0.5.11") center / contain no-repeat;
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55));
 }
 

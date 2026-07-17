@@ -1,10 +1,16 @@
-import { field } from "./state.js?v=0.5.10";
+import { field } from "./state.js?v=0.5.11";
 
 export function cellToPercent(lane, column, options = {}) {
   const overflow = Number(options.overflow || 0);
   if (field.coordinateMode === "continuous") {
+    const goalDepth = Math.max(0, Number(field.goalDepth || 0));
+    const playableColumns = field.columns + goalDepth * 2;
     return {
-      x: (clamp(column, -overflow, field.columns + overflow) / field.columns) * 100,
+      x: ((clamp(
+        column,
+        -goalDepth - overflow,
+        field.columns + goalDepth + overflow
+      ) + goalDepth) / playableColumns) * 100,
       y: (clamp(lane, -overflow, field.lanes + overflow) / field.lanes) * 100
     };
   }

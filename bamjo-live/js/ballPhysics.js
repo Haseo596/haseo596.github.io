@@ -1,5 +1,5 @@
-import { field, state } from "./state.js?v=0.5.10";
-import { clamp, findPlayer, normalizeId, trimSet } from "./utils.js?v=0.5.10";
+import { field, state } from "./state.js?v=0.5.11";
+import { clamp, findPlayer, normalizeId, trimSet } from "./utils.js?v=0.5.11";
 
 const attachTransitionMs = 240;
 const stopTransitionMs = 160;
@@ -194,8 +194,16 @@ function integrateTimelineState(physics, visualPlayers, toMs) {
     }
   }
 
-  physics.lane = clamp(physics.lane, -0.48, fieldMaximum("lane") + 0.48);
-  physics.column = clamp(physics.column, -0.48, fieldMaximum("column") + 0.48);
+  physics.lane = clamp(
+    physics.lane,
+    fieldMinimum("lane") - 0.48,
+    fieldMaximum("lane") + 0.48
+  );
+  physics.column = clamp(
+    physics.column,
+    fieldMinimum("column") - 0.48,
+    fieldMaximum("column") + 0.48
+  );
   physics.playbackTimeMs = toMs;
 }
 
@@ -345,8 +353,12 @@ function projectImpulse(event, playbackTimeMs) {
   const speed = Math.hypot(event.velocityLane, event.velocityColumn);
   if (speed <= 0) {
     return {
-      lane: clamp(event.lane, 0, fieldMaximum("lane")),
-      column: clamp(event.column, 0, fieldMaximum("column"))
+      lane: clamp(event.lane, fieldMinimum("lane"), fieldMaximum("lane")),
+      column: clamp(
+        event.column,
+        fieldMinimum("column"),
+        fieldMaximum("column")
+      )
     };
   }
 
@@ -363,15 +375,19 @@ function projectImpulse(event, playbackTimeMs) {
     const targetDistance = Math.hypot(target.lane - event.lane, target.column - event.column);
     if (targetDistance > 0 && distance >= targetDistance) {
       return {
-        lane: clamp(target.lane, 0, fieldMaximum("lane")),
-        column: clamp(target.column, 0, fieldMaximum("column"))
+        lane: clamp(target.lane, fieldMinimum("lane"), fieldMaximum("lane")),
+        column: clamp(
+          target.column,
+          fieldMinimum("column"),
+          fieldMaximum("column")
+        )
       };
     }
   }
 
   return {
-    lane: clamp(lane, 0, fieldMaximum("lane")),
-    column: clamp(column, 0, fieldMaximum("column"))
+    lane: clamp(lane, fieldMinimum("lane"), fieldMaximum("lane")),
+    column: clamp(column, fieldMinimum("column"), fieldMaximum("column"))
   };
 }
 
@@ -442,5 +458,17 @@ function finiteOptionalNumber(value) {
 
 function fieldMaximum(axis) {
   const size = axis === "lane" ? field.lanes : field.columns;
-  return field.coordinateMode === "continuous" ? size : size - 1;
+  if (field.coordinateMode !== "continuous") {
+    return size - 1;
+  }
+
+  return axis === "column" ? size + Number(field.goalDepth || 0) : size;
+}
+
+function fieldMinimum(axis) {
+  if (field.coordinateMode !== "continuous" || axis !== "column") {
+    return 0;
+  }
+
+  return -Number(field.goalDepth || 0);
 }
