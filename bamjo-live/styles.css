@@ -260,10 +260,14 @@ h1 {
 }
 
 .pitch {
+  --field-aspect: 1.5365853659;
+  --goalkeeper-area-depth: 10.3174603175%;
+  --goalkeeper-area-height: 34.1463414634%;
+  --goal-mouth-within-area: 64.2857142857%;
   position: relative;
-  min-height: 420px;
-  aspect-ratio: 7 / 3;
-  width: 100%;
+  min-height: 0;
+  aspect-ratio: var(--field-aspect);
+  width: min(100%, calc((100vh - 235px) * var(--field-aspect)));
   max-height: calc(100vh - 235px);
   align-self: center;
   justify-self: center;
@@ -272,7 +276,7 @@ h1 {
   border: 2px solid rgba(255, 255, 255, 0.2);
   background:
     linear-gradient(90deg, rgba(217, 71, 71, 0.18), transparent 18%, transparent 82%, rgba(56, 135, 232, 0.18)),
-    repeating-linear-gradient(90deg, var(--field), var(--field) calc(100% / 7), var(--field-2) calc(100% / 7), var(--field-2) calc(200% / 7));
+    repeating-linear-gradient(90deg, var(--field), var(--field) calc(100% / 12), var(--field-2) calc(100% / 12), var(--field-2) calc(200% / 12));
 }
 
 .pitch.customField {
@@ -292,21 +296,28 @@ h1 {
   content: "";
   position: absolute;
   inset: 0;
-  background:
-    repeating-linear-gradient(90deg, transparent 0, transparent calc((100% / 7) - 1px), rgba(255, 255, 255, 0.18) calc((100% / 7) - 1px), rgba(255, 255, 255, 0.18) calc(100% / 7)),
-    repeating-linear-gradient(0deg, transparent 0, transparent calc((100% / 3) - 1px), rgba(255, 255, 255, 0.17) calc((100% / 3) - 1px), rgba(255, 255, 255, 0.17) calc(100% / 3));
   pointer-events: none;
 }
 
 .goal {
   position: absolute;
   top: 50%;
-  width: 10.3175%;
-  height: 34.1463%;
+  width: var(--goalkeeper-area-depth);
+  height: var(--goalkeeper-area-height);
   transform: translateY(-50%);
   border: 2px solid rgba(255, 255, 255, 0.55);
   background: rgba(0, 0, 0, 0.2);
   z-index: 1;
+}
+
+.goal::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: var(--goal-mouth-within-area);
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.82);
 }
 
 .redGoal {
@@ -314,9 +325,17 @@ h1 {
   border-left: 0;
 }
 
+.redGoal::after {
+  left: 0;
+}
+
 .blueGoal {
   right: 0;
   border-right: 0;
+}
+
+.blueGoal::after {
+  right: 0;
 }
 
 .centerLine {
@@ -528,7 +547,7 @@ h1 {
   inset: 13%;
   border: 0;
   border-radius: 0;
-  background: url("../images/totem.svg?v=0.5.9") center / contain no-repeat;
+  background: url("../images/totem.svg?v=0.5.10") center / contain no-repeat;
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55));
 }
 
@@ -975,7 +994,7 @@ h1 {
   }
 
   .pitch {
-    min-height: 260px;
+    min-height: 0;
     max-height: none;
   }
 

@@ -1,4 +1,14 @@
-export const field = { lanes: 3, columns: 7, coordinateMode: "grid" };
+const unitsPerWarcraftUnit = 1.5 / 100;
+
+export const field = {
+  lanes: 2624 * unitsPerWarcraftUnit,
+  columns: 4032 * unitsPerWarcraftUnit,
+  coordinateMode: "continuous",
+  aspectRatio: 4032 / 2624,
+  goalMouthHeight: 576 * unitsPerWarcraftUnit,
+  goalkeeperAreaDepth: 416 * unitsPerWarcraftUnit,
+  goalkeeperAreaHeight: 896 * unitsPerWarcraftUnit
+};
 export const maxEvents = 36;
 export const reconnectDelayMs = 2500;
 export const playbackDelayMs = 700;

@@ -1,5 +1,5 @@
-import { els, maxEvents, state } from "./state.js?v=0.5.9";
-import { cellToPercent, formatMatchTime, teamColor, trimSet } from "./utils.js?v=0.5.9";
+import { els, field, maxEvents, state } from "./state.js?v=0.5.10";
+import { cellToPercent, formatMatchTime, teamColor, trimSet } from "./utils.js?v=0.5.10";
 
 export function queueFrameEvents(frame, sourceType) {
   for (const event of frame.events) {
@@ -287,8 +287,8 @@ function fallbackFrame() {
   return {
     players: [],
     ball: {
-      lane: 1,
-      column: 3
+      lane: field.lanes / 2,
+      column: field.columns / 2
     }
   };
 }

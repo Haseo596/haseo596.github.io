@@ -1,5 +1,5 @@
-import { field, state } from "./state.js?v=0.5.9";
-import { clamp, findPlayer, normalizeId, trimSet } from "./utils.js?v=0.5.9";
+import { field, state } from "./state.js?v=0.5.10";
+import { clamp, findPlayer, normalizeId, trimSet } from "./utils.js?v=0.5.10";
 
 const attachTransitionMs = 240;
 const stopTransitionMs = 160;
@@ -194,8 +194,8 @@ function integrateTimelineState(physics, visualPlayers, toMs) {
     }
   }
 
-  physics.lane = clamp(physics.lane, -0.48, field.lanes - 1 + 0.48);
-  physics.column = clamp(physics.column, -0.48, field.columns - 1 + 0.48);
+  physics.lane = clamp(physics.lane, -0.48, fieldMaximum("lane") + 0.48);
+  physics.column = clamp(physics.column, -0.48, fieldMaximum("column") + 0.48);
   physics.playbackTimeMs = toMs;
 }
 
@@ -345,8 +345,8 @@ function projectImpulse(event, playbackTimeMs) {
   const speed = Math.hypot(event.velocityLane, event.velocityColumn);
   if (speed <= 0) {
     return {
-      lane: clamp(event.lane, 0, field.lanes - 1),
-      column: clamp(event.column, 0, field.columns - 1)
+      lane: clamp(event.lane, 0, fieldMaximum("lane")),
+      column: clamp(event.column, 0, fieldMaximum("column"))
     };
   }
 
@@ -363,15 +363,15 @@ function projectImpulse(event, playbackTimeMs) {
     const targetDistance = Math.hypot(target.lane - event.lane, target.column - event.column);
     if (targetDistance > 0 && distance >= targetDistance) {
       return {
-        lane: clamp(target.lane, 0, field.lanes - 1),
-        column: clamp(target.column, 0, field.columns - 1)
+        lane: clamp(target.lane, 0, fieldMaximum("lane")),
+        column: clamp(target.column, 0, fieldMaximum("column"))
       };
     }
   }
 
   return {
-    lane: clamp(lane, 0, field.lanes - 1),
-    column: clamp(column, 0, field.columns - 1)
+    lane: clamp(lane, 0, fieldMaximum("lane")),
+    column: clamp(column, 0, fieldMaximum("column"))
   };
 }
 
@@ -406,8 +406,8 @@ function normalizePhysicsEvent(event, key) {
     timeMs: finiteNumber(event.timeMs, 0),
     actorId: normalizeId(event.actorId),
     playerId: normalizeId(event.playerId),
-    lane: finiteNumber(event.lane, 1),
-    column: finiteNumber(event.column, 3),
+    lane: finiteNumber(event.lane, field.lanes / 2),
+    column: finiteNumber(event.column, field.columns / 2),
     targetLane: finiteOptionalNumber(event.targetLane),
     targetColumn: finiteOptionalNumber(event.targetColumn),
     velocityLane: finiteNumber(event.velocityLane, 0),
@@ -438,4 +438,9 @@ function lerpNumber(a, b, t) {
 function finiteOptionalNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function fieldMaximum(axis) {
+  const size = axis === "lane" ? field.lanes : field.columns;
+  return field.coordinateMode === "continuous" ? size : size - 1;
 }

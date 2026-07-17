@@ -1,4 +1,4 @@
-import { els, field, reconnectDelayMs, state } from "./state.js?v=0.5.9";
+import { els, field, reconnectDelayMs, state } from "./state.js?v=0.5.10";
 import {
   buildSnapshotUrl,
   buildWebSocketUrl,
@@ -6,11 +6,11 @@ import {
   normalizeWebSocketBase,
   readWebSocketSource,
   replaceCurrentQuery
-} from "./network.js?v=0.5.9";
-import { normalizeFrame } from "./frames.js?v=0.5.9";
-import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.5.9";
-import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js?v=0.5.9";
-import { getPlaybackTimeMs } from "./timeline.js?v=0.5.9";
+} from "./network.js?v=0.5.10";
+import { normalizeFrame } from "./frames.js?v=0.5.10";
+import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.5.10";
+import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js?v=0.5.10";
+import { getPlaybackTimeMs } from "./timeline.js?v=0.5.10";
 import {
   getInterpolatedFrame,
   getStatusCode,
@@ -23,12 +23,14 @@ import {
   updateScore,
   updateServerTime,
   updateTick
-} from "./render.js?v=0.5.9";
+} from "./render.js?v=0.5.10";
 
 init();
 requestAnimationFrame(render);
 
 function init() {
+  applyFieldGeometry(field);
+
   const params = new URLSearchParams(window.location.search);
   const hadTokenParam = params.has("token");
   if (hadTokenParam) {
@@ -262,9 +264,7 @@ function handleServerMessage(message) {
     case "match_info":
       state.info = message;
       state.usesTimeline = Number(message.protocol || 0) >= 2;
-      field.lanes = message.field?.lanes || field.lanes;
-      field.columns = message.field?.columns || field.columns;
-      field.coordinateMode = message.field?.coordinateMode || "grid";
+      applyFieldGeometry(message.field);
       state.animationDurationMs = getTickAnimationDuration();
       els.matchIdLabel.textContent = message.matchId || "-";
       setPhase(message.status);
@@ -332,6 +332,47 @@ function handleServerMessage(message) {
       pushEvent({ tick: "-", kind: "message", text: `Неизвестное сообщение: ${message.type || "-"}` });
       break;
   }
+}
+
+function applyFieldGeometry(value = {}) {
+  field.lanes = positiveNumber(value.lanes, field.lanes);
+  field.columns = positiveNumber(value.columns, field.columns);
+  field.coordinateMode = value.coordinateMode || field.coordinateMode;
+  field.aspectRatio = positiveNumber(
+    value.aspectRatio,
+    field.columns / field.lanes
+  );
+  field.goalMouthHeight = positiveNumber(
+    value.goalMouthHeight,
+    field.goalMouthHeight
+  );
+  field.goalkeeperAreaDepth = positiveNumber(
+    value.goalkeeperAreaDepth,
+    field.goalkeeperAreaDepth
+  );
+  field.goalkeeperAreaHeight = positiveNumber(
+    value.goalkeeperAreaHeight,
+    field.goalkeeperAreaHeight
+  );
+
+  els.pitch.style.setProperty("--field-aspect", String(field.aspectRatio));
+  els.pitch.style.setProperty(
+    "--goalkeeper-area-depth",
+    `${field.goalkeeperAreaDepth / field.columns * 100}%`
+  );
+  els.pitch.style.setProperty(
+    "--goalkeeper-area-height",
+    `${field.goalkeeperAreaHeight / field.lanes * 100}%`
+  );
+  els.pitch.style.setProperty(
+    "--goal-mouth-within-area",
+    `${field.goalMouthHeight / field.goalkeeperAreaHeight * 100}%`
+  );
+}
+
+function positiveNumber(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : fallback;
 }
 
 function startTimelineRequests() {
