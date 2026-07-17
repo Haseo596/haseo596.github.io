@@ -27,6 +27,7 @@ body {
 
 body {
   margin: 0;
+  overflow: hidden;
   background:
     radial-gradient(circle at 15% 5%, rgba(244, 201, 93, 0.08), transparent 28rem),
     linear-gradient(145deg, #101315, #171b1e 48%, #0f1317);
@@ -41,11 +42,14 @@ input {
 }
 
 .app {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
   padding: 20px;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 14px;
+  overflow: hidden;
 }
 
 .topbar,
@@ -239,8 +243,9 @@ h1 {
 .pitchPanel {
   padding: 14px;
   display: grid;
-  grid-template-rows: auto minmax(420px, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
+  overflow: hidden;
 }
 
 .pitchHeader {
@@ -258,6 +263,15 @@ h1 {
   font-size: 18px;
 }
 
+.pitchViewport {
+  min-width: 0;
+  min-height: 0;
+  container-type: size;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
 .pitch {
   --field-aspect: 1.6341463415;
   --field-inset: 2.9850746269%;
@@ -270,8 +284,9 @@ h1 {
   position: relative;
   min-height: 0;
   aspect-ratio: var(--field-aspect);
-  width: 100%;
-  max-height: none;
+  width: min(100cqw, calc(100cqh * var(--field-aspect)));
+  max-width: 100%;
+  max-height: 100%;
   align-self: center;
   justify-self: center;
   overflow: hidden;
@@ -769,6 +784,7 @@ h1 {
 }
 
 .sidePanel {
+  height: 100%;
   padding: 14px;
   display: grid;
   grid-template-rows: minmax(0, auto) minmax(0, 1fr);
@@ -842,11 +858,13 @@ h1 {
   min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .events {
+  height: 100%;
   min-height: 0;
-  max-height: 100%;
+  max-height: none;
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
@@ -992,6 +1010,10 @@ h1 {
 }
 
 @media (max-width: 980px) {
+  body {
+    overflow: auto;
+  }
+
   .app {
     padding: 12px;
     height: auto;
@@ -1018,12 +1040,20 @@ h1 {
     grid-template-rows: auto auto;
   }
 
+  .pitchViewport {
+    container-type: normal;
+    display: block;
+    overflow: visible;
+  }
+
   .pitch {
+    width: 100%;
     min-height: 0;
     max-height: none;
   }
 
   .sidePanel {
+    height: auto;
     min-height: 420px;
     max-height: 70vh;
   }
