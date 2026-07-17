@@ -45,15 +45,14 @@ input {
   height: 100vh;
   height: 100dvh;
   min-height: 0;
-  padding: 20px;
+  padding: 14px;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 14px;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
   overflow: hidden;
 }
 
 .topbar,
-.connection,
 .pitchPanel,
 .sidePanel {
   border: 1px solid var(--line);
@@ -62,12 +61,12 @@ input {
 }
 
 .topbar {
-  min-height: 88px;
+  min-height: 72px;
   border-radius: 8px;
-  padding: 14px 16px;
+  padding: 10px 12px;
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(340px, 560px);
-  gap: 16px;
+  grid-template-columns: minmax(180px, 0.55fr) minmax(280px, 1fr) minmax(340px, 560px);
+  gap: 10px;
   align-items: center;
 }
 
@@ -79,8 +78,8 @@ input {
 }
 
 .mark {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: 8px;
   display: grid;
   place-items: center;
@@ -112,7 +111,7 @@ h1 {
 }
 
 .scoreboard {
-  min-height: 58px;
+  min-height: 52px;
   display: grid;
   grid-template-columns: 1fr 132px 1fr;
   align-items: center;
@@ -175,17 +174,16 @@ h1 {
 }
 
 .connection {
-  border-radius: 8px;
-  padding: 12px;
+  min-width: 0;
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) auto;
-  gap: 10px;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 8px;
   align-items: end;
 }
 
 .connection label {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -197,7 +195,7 @@ h1 {
 
 .connection input {
   width: 100%;
-  min-height: 38px;
+  min-height: 34px;
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 8px 10px;
@@ -211,7 +209,7 @@ h1 {
 }
 
 .connection button {
-  min-height: 38px;
+  min-height: 34px;
   border: 0;
   border-radius: 6px;
   padding: 8px 14px;
@@ -229,8 +227,8 @@ h1 {
 .layout {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(560px, 1fr) 360px;
-  gap: 14px;
+  grid-template-columns: minmax(560px, 1fr) 340px;
+  gap: 10px;
   overflow: hidden;
 }
 
@@ -241,10 +239,10 @@ h1 {
 }
 
 .pitchPanel {
-  padding: 14px;
+  padding: 10px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 12px;
+  gap: 8px;
   overflow: hidden;
 }
 
@@ -253,14 +251,14 @@ h1 {
   justify-content: space-between;
   gap: 16px;
   align-items: center;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .pitchHeader strong {
   display: block;
-  margin-top: 4px;
+  margin-top: 2px;
   color: var(--text);
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .pitchViewport {
@@ -1022,8 +1020,7 @@ h1 {
   }
 
   .topbar,
-  .layout,
-  .connection {
+  .layout {
     grid-template-columns: 1fr;
   }
 
@@ -1062,6 +1059,10 @@ h1 {
 @media (max-width: 560px) {
   .topbar {
     padding: 12px;
+  }
+
+  .connection {
+    grid-template-columns: 1fr;
   }
 
   .brand {

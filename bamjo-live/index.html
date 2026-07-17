@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Матч</title>
-  <link rel="stylesheet" href="./styles.css?v=0.5.13">
+  <link rel="stylesheet" href="./styles.css?v=0.5.14">
 </head>
 <body>
   <main class="app">
@@ -14,6 +14,14 @@
         <div>
           <p id="matchStatus">Не подключено</p>
         </div>
+      </div>
+
+      <div class="connection" aria-label="Подключение">
+        <label>
+          <span>Матч</span>
+          <input id="matchIdInput" autocomplete="off" spellcheck="false">
+        </label>
+        <button id="connectButton" type="button">Подключить</button>
       </div>
 
       <div class="scoreboard" aria-live="polite">
@@ -30,14 +38,6 @@
           <span>Синие</span>
         </div>
       </div>
-    </section>
-
-    <section class="connection" aria-label="Подключение">
-      <label>
-        <span>Матч</span>
-        <input id="matchIdInput" autocomplete="off" spellcheck="false">
-      </label>
-      <button id="connectButton" type="button">Подключить</button>
     </section>
 
     <section class="layout">
@@ -94,8 +94,8 @@
       </aside>
     </section>
   </main>
-  <div class="viewerVersion" aria-label="Версия клиента">live v0.5.13</div>
+  <div class="viewerVersion" aria-label="Версия клиента">live v0.5.14</div>
 
-  <script type="module" src="./js/main.js?v=0.5.12"></script>
+  <script type="module" src="./js/main.js?v=0.5.14"></script>
 </body>
 </html>
