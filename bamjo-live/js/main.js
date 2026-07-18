@@ -25,8 +25,8 @@ import {
   updateTick
 } from "./render.js?v=0.5.12";
 
-const initialAvailabilityRetries = 2;
-const availabilityRetryDelayMs = 650;
+const initialAvailabilityRetries = 10;
+const availabilityRetryDelayMs = 750;
 
 init();
 requestAnimationFrame(render);
@@ -67,13 +67,19 @@ function init() {
   els.connectButton.addEventListener("click", () => connectFromInputs());
 
   if (els.matchIdInput.value && state.webSocketBase) {
-    connectFromInputs({ availabilityRetries: initialAvailabilityRetries });
+    connectFromInputs({
+      availabilityRetries: initialAvailabilityRetries,
+      connectImmediately: true
+    });
   } else if (els.matchIdInput.value) {
     setStatus("Нет адреса сервера");
   }
 }
 
-async function connectFromInputs({ availabilityRetries = 0 } = {}) {
+async function connectFromInputs({
+  availabilityRetries = 0,
+  connectImmediately = false
+} = {}) {
   const matchId = els.matchIdInput.value.trim();
   const wsValue = state.webSocketBase.trim();
   const url = buildWebSocketUrl(wsValue, matchId);
@@ -96,6 +102,12 @@ async function connectFromInputs({ availabilityRetries = 0 } = {}) {
   setStatus("Проверка матча");
   els.connectButton.disabled = true;
 
+  if (connectImmediately) {
+    openSocket(url, attemptId);
+    verifyInitialConnection(url, attemptId, availabilityRetries);
+    return;
+  }
+
   const availability = await checkMatchAvailability(url, availabilityRetries);
   if (attemptId !== state.connectionAttempt) {
     return;
@@ -109,6 +121,20 @@ async function connectFromInputs({ availabilityRetries = 0 } = {}) {
   }
 
   openSocket(url, attemptId);
+}
+
+async function verifyInitialConnection(url, attemptId, availabilityRetries) {
+  const availability = await checkMatchAvailability(url, availabilityRetries);
+  if (attemptId !== state.connectionAttempt ||
+      state.socket?.readyState === WebSocket.OPEN ||
+      availability !== "not_found") {
+    return;
+  }
+
+  closeCurrentSocket();
+  els.connectButton.disabled = false;
+  setStatus("Матч не найден");
+  setPhase("Не найден");
 }
 
 function openSocket(url, attemptId = state.connectionAttempt) {
@@ -261,7 +287,7 @@ async function checkMatchAvailability(webSocketUrl, notFoundRetries = 0) {
 
     if (attempt < notFoundRetries) {
       await new Promise((resolve) =>
-        setTimeout(resolve, availabilityRetryDelayMs * (attempt + 1)));
+        setTimeout(resolve, availabilityRetryDelayMs));
     }
   }
 
