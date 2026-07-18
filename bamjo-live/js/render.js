@@ -848,11 +848,16 @@ function renderPlayers(frame) {
       player.hero === "dh" && Boolean(player.sprinting);
     el.classList.toggle("dhSprinting", demonHunterSprinting);
     if (demonHunterSprinting) {
-      const facingLane = Number(player.facingLane ?? player.velocityLane ?? 0);
-      const facingColumn = Number(
-        player.facingColumn ?? player.velocityColumn ?? teamDirection(player.team)
-      );
-      const angle = Math.atan2(facingLane, facingColumn) * 180 / Math.PI;
+      const velocityLane = Number(player.velocityLane ?? 0);
+      const velocityColumn = Number(player.velocityColumn ?? 0);
+      const hasMovement = Math.hypot(velocityLane, velocityColumn) > 0.0001;
+      const movementLane = hasMovement
+        ? velocityLane
+        : Number(player.facingLane ?? 0);
+      const movementColumn = hasMovement
+        ? velocityColumn
+        : Number(player.facingColumn ?? teamDirection(player.team));
+      const angle = Math.atan2(movementLane, movementColumn) * 180 / Math.PI;
       el.style.setProperty("--sprint-angle", `${angle}deg`);
     } else {
       el.style.removeProperty("--sprint-angle");

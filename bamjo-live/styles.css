@@ -430,17 +430,18 @@ h1 {
 .player.dhSprinting::after {
   content: "";
   position: absolute;
-  left: 50%;
+  left: auto;
+  right: 50%;
   top: 66%;
   z-index: -1;
   pointer-events: none;
   transform-origin: 100% 50%;
-  transform: translate(-100%, -50%) rotate(var(--sprint-angle, 0deg));
+  transform: translateY(-50%) rotate(var(--sprint-angle, 0deg));
 }
 
 .player.dhSprinting::before {
-  width: clamp(76px, 8.2vw, 112px);
-  height: clamp(24px, 2.8vw, 38px);
+  width: clamp(58px, 6vw, 82px);
+  height: clamp(28px, 3vw, 42px);
   background: linear-gradient(
     90deg,
     transparent 0%,
@@ -455,8 +456,8 @@ h1 {
 }
 
 .player.dhSprinting::after {
-  width: clamp(56px, 6vw, 82px);
-  height: clamp(9px, 1vw, 14px);
+  width: clamp(42px, 4.6vw, 60px);
+  height: clamp(10px, 1.2vw, 16px);
   background: linear-gradient(90deg, transparent, #ff5614 48%, #fff8c9);
   clip-path: polygon(0 42%, 38% 0, 100% 24%, 100% 76%, 34% 100%);
   filter: blur(0.4px) drop-shadow(0 0 8px rgba(255, 213, 92, 1));

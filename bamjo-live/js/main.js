@@ -22,7 +22,7 @@ import {
   updateScore,
   updateServerTime,
   updateTick
-} from "./render.js?v=0.5.22";
+} from "./render.js?v=0.5.24";
 
 init();
 requestAnimationFrame(render);
