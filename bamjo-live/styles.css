@@ -932,18 +932,28 @@ h1 {
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   gap: 8px;
   padding-right: 4px;
   scrollbar-gutter: stable;
+  overflow-anchor: none;
 }
 
 .event {
+  flex: 0 0 auto;
   border: 1px solid var(--line);
   border-left: 4px solid var(--team-color, var(--gold));
   border-radius: 7px;
   padding: 8px;
   background: #14191c;
+  cursor: pointer;
+}
+
+.event.selected {
+  border-color: #f0c75e;
+  border-left-color: var(--team-color, #f0c75e);
+  background: #202126;
+  box-shadow: inset 0 0 0 1px rgb(240 199 94 / 28%);
 }
 
 .eventText {

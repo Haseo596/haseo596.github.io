@@ -1,6 +1,14 @@
 import { els, field, maxEvents, state } from "./state.js?v=0.5.12";
 import { cellToPercent, formatMatchTime, teamColor, trimSet } from "./utils.js?v=0.5.12";
 
+const eventScrollBottomTolerance = 24;
+const pausedEventLimit = maxEvents * 8;
+let followLatestEvent = true;
+let selectedEventKey = null;
+
+els.events.addEventListener("scroll", handleEventScroll, { passive: true });
+els.events.addEventListener("click", handleEventClick);
+
 export function queueFrameEvents(frame, sourceType) {
   for (const event of frame.events) {
     const delay = eventDelayMs(event, sourceType, frame);
@@ -76,20 +84,28 @@ export function pushEvent(event) {
     return;
   }
 
+  resetEventViewStateIfEmpty();
+
   const key = eventKey(event);
   if (state.eventKeys.has(key)) {
     return;
   }
 
   state.eventKeys.add(key);
-  trimSet(state.eventKeys, maxEvents * 4);
+  trimSet(state.eventKeys, pausedEventLimit * 4);
 
-  state.events.unshift(event);
-  if (state.events.length > maxEvents) {
-    state.events.length = maxEvents;
+  if (isRepeatedDribble(event)) {
+    return;
   }
 
-  els.events.replaceChildren(...state.events.map(createEventElement));
+  state.events.push(event);
+  const element = createEventElement(event, key);
+  els.events.appendChild(element);
+
+  trimEventLog(followLatestEvent ? maxEvents : pausedEventLimit);
+  if (followLatestEvent) {
+    scrollEventLogToBottom();
+  }
 }
 
 export function hasTag(event, tag) {
@@ -276,9 +292,10 @@ function effectDuration(event) {
   return 1050;
 }
 
-function createEventElement(event) {
+function createEventElement(event, key) {
   const el = document.createElement("div");
   el.className = "event";
+  el.dataset.eventKey = key;
   el.style.setProperty("--team-color", event.team ? teamColor(event.team) : "var(--gold)");
 
   const meta = document.createElement("div");
@@ -292,6 +309,89 @@ function createEventElement(event) {
 
   el.append(meta, text);
   return el;
+}
+
+function isRepeatedDribble(event) {
+  const previous = state.events[state.events.length - 1];
+  return previous !== undefined &&
+    event.kind === "move" &&
+    previous.kind === "move" &&
+    hasTag(event, "dribble") &&
+    hasTag(previous, "dribble") &&
+    String(event.text).trim() === String(previous.text).trim();
+}
+
+function handleEventScroll() {
+  const atBottom = isEventLogAtBottom();
+  if (!atBottom) {
+    followLatestEvent = false;
+    return;
+  }
+
+  if (!followLatestEvent) {
+    followLatestEvent = true;
+    clearSelectedEvent();
+    trimEventLog(maxEvents);
+    scrollEventLogToBottom();
+  }
+}
+
+function handleEventClick(event) {
+  const target = event.target instanceof Element
+    ? event.target.closest(".event")
+    : null;
+  if (!target || !els.events.contains(target)) {
+    return;
+  }
+
+  const key = target.dataset.eventKey || null;
+  if (key && key === selectedEventKey) {
+    followLatestEvent = true;
+    clearSelectedEvent();
+    trimEventLog(maxEvents);
+    scrollEventLogToBottom();
+    return;
+  }
+
+  clearSelectedEvent();
+  selectedEventKey = key;
+  target.classList.add("selected");
+  followLatestEvent = false;
+}
+
+function clearSelectedEvent() {
+  els.events.querySelector(".event.selected")?.classList.remove("selected");
+  selectedEventKey = null;
+}
+
+function trimEventLog(limit) {
+  const removeCount = Math.max(0, state.events.length - limit);
+  if (removeCount === 0) {
+    return;
+  }
+
+  state.events.splice(0, removeCount);
+  for (let index = 0; index < removeCount; index++) {
+    els.events.firstElementChild?.remove();
+  }
+}
+
+function isEventLogAtBottom() {
+  return els.events.scrollHeight - els.events.clientHeight - els.events.scrollTop <=
+    eventScrollBottomTolerance;
+}
+
+function scrollEventLogToBottom() {
+  els.events.scrollTop = els.events.scrollHeight;
+}
+
+function resetEventViewStateIfEmpty() {
+  if (state.events.length !== 0 || els.events.childElementCount !== 0) {
+    return;
+  }
+
+  followLatestEvent = true;
+  selectedEventKey = null;
 }
 
 function eventKey(event) {

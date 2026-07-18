@@ -8,7 +8,7 @@ import {
   replaceCurrentQuery
 } from "./network.js?v=0.5.18";
 import { normalizeFrame } from "./frames.js?v=0.5.19";
-import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.5.19";
+import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.5.21";
 import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js?v=0.5.12";
 import { getPlaybackTimeMs } from "./timeline.js?v=0.5.12";
 import {
@@ -19,11 +19,10 @@ import {
   setCustomFieldImage,
   setPhase,
   setStatus,
-  updateRosters,
   updateScore,
   updateServerTime,
   updateTick
-} from "./render.js?v=0.5.19";
+} from "./render.js?v=0.5.21";
 
 init();
 requestAnimationFrame(render);
@@ -664,7 +663,6 @@ function adoptNormalizedFrame(frame, sourceType) {
 
   updateScore(frame.score);
   updateTick(frame.tick);
-  updateRosters(frame.players);
   if (!state.usesTimeline && sourceType !== "timeline") {
     queueFrameEvents(frame, sourceType);
   }

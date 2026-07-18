@@ -1,6 +1,6 @@
 import { els, field, state, tickAnimationStretch } from "./state.js?v=0.5.12";
 import { projectBallPhysics } from "./ballPhysics.js?v=0.5.12";
-import { flushTimelineEvents } from "./events.js?v=0.5.19";
+import { flushTimelineEvents } from "./events.js?v=0.5.21";
 import { getPlaybackTimeMs } from "./timeline.js?v=0.5.12";
 import {
   cellToPercent,
@@ -14,6 +14,8 @@ import {
   teamColor
 } from "./utils.js?v=0.5.12";
 
+let rosterSignature = null;
+
 export function renderFrame(now) {
   const playbackTimeMs = state.usesTimeline ? getPlaybackTimeMs() : null;
   updateMatchStatus(playbackTimeMs);
@@ -24,6 +26,7 @@ export function renderFrame(now) {
     const visualFrame = state.usesTimeline ? continuousTimelineFrame(frame) : frame;
     updateTick(frame.visualTick ?? frame.tick);
     updateScore(frame.score);
+    updateRosters(visualFrame.players);
     renderPlayers(visualFrame);
     renderObjects(frame);
     renderBall(visualFrame);
@@ -144,6 +147,14 @@ export function getTickAnimationDuration() {
 }
 
 export function updateRosters(players) {
+  const signature = players
+    .map((player) => [player.id, player.nickname, player.team, player.role, player.hero].join("\u0001"))
+    .join("\u0002");
+  if (signature === rosterSignature) {
+    return;
+  }
+
+  rosterSignature = signature;
   els.redRoster.replaceChildren(...players.filter((player) => player.team === "red").map(createRosterCard));
   els.blueRoster.replaceChildren(...players.filter((player) => player.team === "blue").map(createRosterCard));
 }
