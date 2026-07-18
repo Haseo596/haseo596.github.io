@@ -56,6 +56,8 @@ export function normalizeFrame(message) {
       velocityColumn: Number(player.velocityColumn ?? player.VelocityColumn ?? 0),
       facingLane: Number(player.facingLane ?? player.FacingLane ?? 0),
       facingColumn: Number(player.facingColumn ?? player.FacingColumn ?? 0),
+      mana: Number(player.mana ?? player.Mana ?? 0),
+      sprinting: Boolean(player.sprinting ?? player.IsSprinting),
       hasBall: Boolean(player.hasBall)
     })),
     objects: (message.objects || []).map((object) => ({

@@ -844,6 +844,19 @@ function renderPlayers(frame) {
     el.style.zIndex = String(hasControlledBall ? 5 : 4);
     el.style.setProperty("--team-color", teamColor(player.team));
     el.classList.toggle("hasBall", hasControlledBall);
+    const demonHunterSprinting =
+      player.hero === "dh" && Boolean(player.sprinting);
+    el.classList.toggle("dhSprinting", demonHunterSprinting);
+    if (demonHunterSprinting) {
+      const facingLane = Number(player.facingLane ?? player.velocityLane ?? 0);
+      const facingColumn = Number(
+        player.facingColumn ?? player.velocityColumn ?? teamDirection(player.team)
+      );
+      const angle = Math.atan2(facingLane, facingColumn) * 180 / Math.PI;
+      el.style.setProperty("--sprint-angle", `${angle}deg`);
+    } else {
+      el.style.removeProperty("--sprint-angle");
+    }
     el.querySelector(".playerIcon").style.backgroundImage = `url("${heroImage(player.hero)}")`;
     el.querySelector(".playerLabel").textContent = player.nickname;
   }

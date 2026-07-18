@@ -426,6 +426,43 @@ h1 {
   transition: filter 160ms ease;
 }
 
+.player.dhSprinting::before,
+.player.dhSprinting::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 66%;
+  z-index: -1;
+  pointer-events: none;
+  transform-origin: 100% 50%;
+  transform: translate(-100%, -50%) rotate(var(--sprint-angle, 0deg));
+}
+
+.player.dhSprinting::before {
+  width: clamp(48px, 5.4vw, 70px);
+  height: clamp(15px, 1.8vw, 23px);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(198, 34, 9, 0.28) 20%,
+    rgba(255, 76, 12, 0.78) 54%,
+    rgba(255, 174, 48, 0.96) 79%,
+    rgba(255, 244, 174, 0.98) 100%
+  );
+  clip-path: polygon(0 48%, 22% 20%, 17% 43%, 43% 8%, 38% 42%, 70% 20%, 100% 36%, 100% 64%, 69% 80%, 40% 58%, 22% 89%);
+  filter: blur(0.7px) drop-shadow(0 0 7px rgba(255, 82, 16, 0.8));
+  animation: dh-comet-flame 180ms ease-in-out infinite alternate;
+}
+
+.player.dhSprinting::after {
+  width: clamp(35px, 4vw, 52px);
+  height: clamp(5px, 0.65vw, 9px);
+  background: linear-gradient(90deg, transparent, #ff5614 52%, #fff3a4);
+  clip-path: polygon(0 42%, 38% 0, 100% 24%, 100% 76%, 34% 100%);
+  filter: blur(0.4px) drop-shadow(0 0 5px rgba(255, 204, 75, 0.9));
+  animation: dh-comet-core 130ms ease-in-out infinite alternate;
+}
+
 .playerIcon {
   width: clamp(38px, 4.6vw, 54px);
   aspect-ratio: 1;
@@ -1136,6 +1173,28 @@ h1 {
   100% {
     opacity: 0;
     transform: translate(-50%, -50%) scale(0.25) rotate(260deg);
+  }
+}
+
+@keyframes dh-comet-flame {
+  from {
+    opacity: 0.68;
+    scale: 0.88 0.82;
+  }
+  to {
+    opacity: 1;
+    scale: 1.08 1.04;
+  }
+}
+
+@keyframes dh-comet-core {
+  from {
+    opacity: 0.72;
+    scale: 0.9 0.72;
+  }
+  to {
+    opacity: 1;
+    scale: 1.12 1;
   }
 }
 
