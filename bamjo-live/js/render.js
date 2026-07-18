@@ -1,6 +1,6 @@
 import { els, field, state, tickAnimationStretch } from "./state.js?v=0.5.12";
 import { projectBallPhysics } from "./ballPhysics.js?v=0.5.12";
-import { flushTimelineEvents } from "./events.js?v=0.5.12";
+import { flushTimelineEvents } from "./events.js?v=0.5.19";
 import { getPlaybackTimeMs } from "./timeline.js?v=0.5.12";
 import {
   cellToPercent,
@@ -364,6 +364,9 @@ function interpolateVisualBall(previousBall, targetBall, t) {
   return {
     ...targetBall,
     holderPlayerId: sameHolder ? targetHolderId : null,
+    powerShot: t >= 0.999
+      ? Boolean(targetBall?.powerShot)
+      : Boolean(previousBall?.powerShot),
     lane: lerp(previousBall?.lane ?? targetBall?.lane ?? 1, targetBall?.lane ?? previousBall?.lane ?? 1, t),
     column: lerp(previousBall?.column ?? targetBall?.column ?? 3, targetBall?.column ?? previousBall?.column ?? 3, t)
   };
@@ -875,6 +878,7 @@ function renderBall(frame) {
   const position = cellToPercent(frame.ball.lane, frame.ball.column, { overflow: 0.48 });
   els.ball.style.setProperty("--ball-x", `${position.x}%`);
   els.ball.style.setProperty("--ball-y", `${position.y}%`);
+  els.ball.classList.toggle("powerShot", Boolean(frame.ball.powerShot));
 }
 
 function isBallAtPlayer(ball, player) {

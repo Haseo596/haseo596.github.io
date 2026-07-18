@@ -7,8 +7,8 @@ import {
   readWebSocketSource,
   replaceCurrentQuery
 } from "./network.js?v=0.5.18";
-import { normalizeFrame } from "./frames.js?v=0.5.12";
-import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.5.12";
+import { normalizeFrame } from "./frames.js?v=0.5.19";
+import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.5.19";
 import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js?v=0.5.12";
 import { getPlaybackTimeMs } from "./timeline.js?v=0.5.12";
 import {
@@ -23,7 +23,7 @@ import {
   updateScore,
   updateServerTime,
   updateTick
-} from "./render.js?v=0.5.12";
+} from "./render.js?v=0.5.19";
 
 init();
 requestAnimationFrame(render);

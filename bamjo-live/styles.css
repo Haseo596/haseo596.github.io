@@ -408,7 +408,6 @@ h1 {
 
 .effectsLayer {
   z-index: 12;
-  display: none;
 }
 
 .player,
@@ -550,6 +549,15 @@ h1 {
   box-shadow: 0 8px 14px rgba(0, 0, 0, 0.4);
 }
 
+.ball.powerShot::before {
+  border-color: rgba(220, 241, 255, 0.96);
+  box-shadow:
+    0 0 0 3px rgba(174, 220, 255, 0.44),
+    0 0 18px 7px rgba(111, 181, 255, 0.76),
+    0 8px 14px rgba(0, 0, 0, 0.4);
+  animation: warden-ball-pulse 240ms ease-in-out infinite alternate;
+}
+
 .object {
   width: clamp(28px, 4.4vw, 48px);
   aspect-ratio: 1;
@@ -643,6 +651,64 @@ h1 {
 .gohorProjectile.slow {
   background: radial-gradient(circle at 36% 30%, #ffffff 0 13%, #ffb0a8 24%, #ef3f3f 58%, #731414 100%);
   box-shadow: 0 0 7px #ffaaa2, 0 0 16px rgba(239, 63, 63, 0.9);
+}
+
+.wardenEffect {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: clamp(46px, 5vw, 68px);
+  aspect-ratio: 1;
+  z-index: 17;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  color: color-mix(in srgb, var(--team-color) 46%, #eaf6ff 54%);
+}
+
+.wardenEffect::before,
+.wardenEffect::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 3px solid currentColor;
+  box-shadow: 0 0 14px currentColor;
+}
+
+.wardenEffect.charge::before {
+  border-radius: 50%;
+  animation: warden-charge 620ms ease-out forwards;
+}
+
+.wardenEffect.charge::after {
+  inset: 18%;
+  border-style: dashed;
+  border-radius: 50%;
+  animation: warden-charge-spin 620ms linear forwards;
+}
+
+.wardenEffect.release::before,
+.wardenEffect.release::after {
+  inset: 24%;
+  transform: rotate(45deg);
+  animation: warden-release 460ms ease-out forwards;
+}
+
+.wardenEffect.release::after {
+  transform: rotate(45deg) scale(0.55);
+  animation-delay: 45ms;
+}
+
+.wardenEffect.impact::before {
+  border-width: 4px 0 4px 4px;
+  border-radius: 50%;
+  animation: warden-impact 720ms ease-out forwards;
+}
+
+.wardenEffect.impact::after {
+  inset: 20%;
+  border-width: 3px 3px 3px 0;
+  border-radius: 50%;
+  animation: warden-impact 720ms 70ms ease-out forwards;
 }
 
 .effect::before,
@@ -948,6 +1014,62 @@ h1 {
     top: var(--to-y);
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes warden-ball-pulse {
+  from {
+    filter: brightness(1);
+  }
+  to {
+    filter: brightness(1.28);
+  }
+}
+
+@keyframes warden-charge {
+  from {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+  28% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.92;
+    transform: scale(0.78);
+  }
+}
+
+@keyframes warden-charge-spin {
+  from {
+    opacity: 0.3;
+    transform: rotate(0deg) scale(1.15);
+  }
+  to {
+    opacity: 0.9;
+    transform: rotate(210deg) scale(0.76);
+  }
+}
+
+@keyframes warden-release {
+  from {
+    opacity: 1;
+    transform: rotate(45deg) scale(0.35);
+  }
+  to {
+    opacity: 0;
+    transform: rotate(135deg) scale(1.75);
+  }
+}
+
+@keyframes warden-impact {
+  from {
+    opacity: 1;
+    transform: translateX(-12%) scale(0.55);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(28%) scale(1.55);
   }
 }
 

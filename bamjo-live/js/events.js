@@ -140,8 +140,9 @@ function spawnEffectOnce(event, frame) {
 }
 
 function shouldSpawnEffect(event) {
-  return String(event.hero || "").toLowerCase() === "gohor" &&
-    hasTag(event, "gohor_projectile");
+  const hero = String(event.hero || "").toLowerCase();
+  return (hero === "gohor" && hasTag(event, "gohor_projectile")) ||
+    (hero === "warden" && hasTag(event, "warden_power"));
 }
 
 function spawnEffect(event, frame) {
@@ -155,6 +156,12 @@ function spawnEffect(event, frame) {
     return;
   }
 
+  if (String(event.hero || "").toLowerCase() === "warden" &&
+      hasTag(event, "warden_power")) {
+    spawnWardenEffect(event, frame);
+    return;
+  }
+
   const point = effectPoint(event, frame);
   const position = cellToPercent(point.lane, point.column);
   const el = document.createElement("div");
@@ -164,6 +171,26 @@ function spawnEffect(event, frame) {
   el.style.setProperty("--team-color", event.team ? teamColor(event.team) : "var(--gold)");
   els.effectsLayer.appendChild(el);
   setTimeout(() => el.remove(), effectDuration(event));
+}
+
+function spawnWardenEffect(event, frame) {
+  const point = hasTag(event, "knockback")
+    ? effectPoint(event, frame)
+    : actorPoint(event, frame);
+  const position = cellToPercent(point.lane, point.column);
+  const phase = hasTag(event, "charge")
+    ? "charge"
+    : hasTag(event, "knockback")
+      ? "impact"
+      : "release";
+  const durationMs = phase === "charge" ? 620 : phase === "impact" ? 720 : 460;
+  const el = document.createElement("div");
+  el.className = `wardenEffect ${phase}`;
+  el.style.left = `${position.x}%`;
+  el.style.top = `${position.y}%`;
+  el.style.setProperty("--team-color", event.team ? teamColor(event.team) : "#f1f7ff");
+  els.effectsLayer.appendChild(el);
+  setTimeout(() => el.remove(), durationMs + 80);
 }
 
 function spawnGohorProjectile(event, frame) {

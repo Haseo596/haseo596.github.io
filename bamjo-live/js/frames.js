@@ -18,6 +18,7 @@ export function normalizeFrame(message) {
       holderPlayerId: normalizeId(message.ball?.holderPlayerId),
       lastTouchPlayerId: normalizeId(message.ball?.lastTouchPlayerId),
       power: Number(message.ball?.power || 0),
+      powerShot: Boolean(message.ball?.powerShot),
       remainingSteps: Number(message.ball?.remainingSteps || 0),
       laneVelocity: Number(message.ball?.laneVelocity || 0),
       columnVelocity: Number(message.ball?.columnVelocity || 0),
