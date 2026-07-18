@@ -25,6 +25,9 @@ import {
   updateTick
 } from "./render.js?v=0.5.12";
 
+const initialAvailabilityRetries = 2;
+const availabilityRetryDelayMs = 650;
+
 init();
 requestAnimationFrame(render);
 
@@ -61,16 +64,16 @@ function init() {
     deriveDefaultWebSocketBase() ||
     "";
 
-  els.connectButton.addEventListener("click", connectFromInputs);
+  els.connectButton.addEventListener("click", () => connectFromInputs());
 
   if (els.matchIdInput.value && state.webSocketBase) {
-    connectFromInputs();
+    connectFromInputs({ availabilityRetries: initialAvailabilityRetries });
   } else if (els.matchIdInput.value) {
     setStatus("Нет адреса сервера");
   }
 }
 
-async function connectFromInputs() {
+async function connectFromInputs({ availabilityRetries = 0 } = {}) {
   const matchId = els.matchIdInput.value.trim();
   const wsValue = state.webSocketBase.trim();
   const url = buildWebSocketUrl(wsValue, matchId);
@@ -93,7 +96,7 @@ async function connectFromInputs() {
   setStatus("Проверка матча");
   els.connectButton.disabled = true;
 
-  const availability = await checkMatchAvailability(url);
+  const availability = await checkMatchAvailability(url, availabilityRetries);
   if (attemptId !== state.connectionAttempt) {
     return;
   }
@@ -232,27 +235,37 @@ function resetMatchView() {
   }
 }
 
-async function checkMatchAvailability(webSocketUrl) {
+async function checkMatchAvailability(webSocketUrl, notFoundRetries = 0) {
   const snapshotUrl = buildSnapshotUrl(webSocketUrl);
   if (!snapshotUrl || typeof fetch !== "function") {
     return "unknown";
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 3500);
+  for (let attempt = 0; attempt <= notFoundRetries; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+    try {
+      const response = await fetch(snapshotUrl, {
+        cache: "no-store",
+        signal: controller.signal
+      });
 
-  try {
-    const response = await fetch(snapshotUrl, {
-      cache: "no-store",
-      signal: controller.signal
-    });
+      if (response.status !== 404) {
+        return "ok";
+      }
+    } catch {
+      return "unknown";
+    } finally {
+      clearTimeout(timeout);
+    }
 
-    return response.status === 404 ? "not_found" : "ok";
-  } catch {
-    return "unknown";
-  } finally {
-    clearTimeout(timeout);
+    if (attempt < notFoundRetries) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, availabilityRetryDelayMs * (attempt + 1)));
+    }
   }
+
+  return "not_found";
 }
 
 function handleServerMessage(message) {
