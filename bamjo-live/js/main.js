@@ -25,9 +25,6 @@ import {
   updateTick
 } from "./render.js?v=0.5.12";
 
-const initialAvailabilityRetries = 10;
-const availabilityRetryDelayMs = 750;
-
 init();
 requestAnimationFrame(render);
 
@@ -64,22 +61,25 @@ function init() {
     deriveDefaultWebSocketBase() ||
     "";
 
-  els.connectButton.addEventListener("click", () => connectFromInputs());
+  els.connectButton.addEventListener("click", connectFromInputs);
 
   if (els.matchIdInput.value && state.webSocketBase) {
-    connectFromInputs({
-      availabilityRetries: initialAvailabilityRetries,
-      connectImmediately: true
-    });
+    connectWhenPageIsReady();
   } else if (els.matchIdInput.value) {
     setStatus("Нет адреса сервера");
   }
 }
 
-async function connectFromInputs({
-  availabilityRetries = 0,
-  connectImmediately = false
-} = {}) {
+function connectWhenPageIsReady() {
+  if (document.readyState === "complete") {
+    els.connectButton.click();
+    return;
+  }
+
+  window.addEventListener("load", () => els.connectButton.click(), { once: true });
+}
+
+async function connectFromInputs() {
   const matchId = els.matchIdInput.value.trim();
   const wsValue = state.webSocketBase.trim();
   const url = buildWebSocketUrl(wsValue, matchId);
@@ -102,13 +102,7 @@ async function connectFromInputs({
   setStatus("Проверка матча");
   els.connectButton.disabled = true;
 
-  if (connectImmediately) {
-    openSocket(url, attemptId);
-    verifyInitialConnection(url, attemptId, availabilityRetries);
-    return;
-  }
-
-  const availability = await checkMatchAvailability(url, availabilityRetries);
+  const availability = await checkMatchAvailability(url);
   if (attemptId !== state.connectionAttempt) {
     return;
   }
@@ -121,20 +115,6 @@ async function connectFromInputs({
   }
 
   openSocket(url, attemptId);
-}
-
-async function verifyInitialConnection(url, attemptId, availabilityRetries) {
-  const availability = await checkMatchAvailability(url, availabilityRetries);
-  if (attemptId !== state.connectionAttempt ||
-      state.socket?.readyState === WebSocket.OPEN ||
-      availability !== "not_found") {
-    return;
-  }
-
-  closeCurrentSocket();
-  els.connectButton.disabled = false;
-  setStatus("Матч не найден");
-  setPhase("Не найден");
 }
 
 function openSocket(url, attemptId = state.connectionAttempt) {
@@ -261,37 +241,26 @@ function resetMatchView() {
   }
 }
 
-async function checkMatchAvailability(webSocketUrl, notFoundRetries = 0) {
+async function checkMatchAvailability(webSocketUrl) {
   const snapshotUrl = buildSnapshotUrl(webSocketUrl);
   if (!snapshotUrl || typeof fetch !== "function") {
     return "unknown";
   }
 
-  for (let attempt = 0; attempt <= notFoundRetries; attempt += 1) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3500);
-    try {
-      const response = await fetch(snapshotUrl, {
-        cache: "no-store",
-        signal: controller.signal
-      });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3500);
+  try {
+    const response = await fetch(snapshotUrl, {
+      cache: "no-store",
+      signal: controller.signal
+    });
 
-      if (response.status !== 404) {
-        return "ok";
-      }
-    } catch {
-      return "unknown";
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    if (attempt < notFoundRetries) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, availabilityRetryDelayMs));
-    }
+    return response.status === 404 ? "not_found" : "ok";
+  } catch {
+    return "unknown";
+  } finally {
+    clearTimeout(timeout);
   }
-
-  return "not_found";
 }
 
 function handleServerMessage(message) {
