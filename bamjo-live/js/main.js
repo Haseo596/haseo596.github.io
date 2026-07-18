@@ -6,7 +6,7 @@ import {
   normalizeWebSocketBase,
   readWebSocketSource,
   replaceCurrentQuery
-} from "./network.js?v=0.5.12";
+} from "./network.js?v=0.5.18";
 import { normalizeFrame } from "./frames.js?v=0.5.12";
 import { pushEvent, queueFrameEvents, queueTimelineEvents } from "./events.js?v=0.5.12";
 import { queueBallPhysicsEvents, resetBallPhysicsFromFrame } from "./ballPhysics.js?v=0.5.12";

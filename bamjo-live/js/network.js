@@ -33,13 +33,12 @@ export function buildWebSocketUrl(value, matchId) {
     return null;
   }
 
-  if (url.pathname.includes("/ws/matches/") || url.pathname.includes("/matches/")) {
-    url.searchParams.delete("token");
-    return url.toString();
-  }
+  url.pathname = stripMatchRoute(url.pathname);
+  url.search = "";
+  url.hash = "";
 
-  const base = value.replace(/\/+$/, "");
-  const path = new URL(base).pathname.replace(/\/+$/, "");
+  const base = url.toString().replace(/\/+$/, "");
+  const path = url.pathname.replace(/\/+$/, "");
   const matchPath = path.endsWith("/ws")
     ? `/matches/${encodeURIComponent(matchId)}`
     : `/ws/matches/${encodeURIComponent(matchId)}`;
@@ -88,9 +87,7 @@ export function normalizeWebSocketBase(value) {
       return "";
     }
 
-    url.pathname = url.pathname
-      .replace(/\/(?:ws\/)?matches\/[^/]+\/?$/i, "")
-      .replace(/\/+$/, "");
+    url.pathname = stripMatchRoute(url.pathname);
     url.search = "";
     url.hash = "";
 
@@ -98,6 +95,12 @@ export function normalizeWebSocketBase(value) {
   } catch {
     return "";
   }
+}
+
+function stripMatchRoute(pathname) {
+  return pathname
+    .replace(/\/(?:ws\/)?matches\/.*$/i, "")
+    .replace(/\/+$/, "");
 }
 
 export function sanitizeWebSocketUrl(value) {
