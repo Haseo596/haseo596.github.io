@@ -1,6 +1,6 @@
 import { els, field, state, tickAnimationStretch } from "./state.js?v=0.5.12";
 import { projectBallPhysics } from "./ballPhysics.js?v=0.5.12";
-import { flushTimelineEvents } from "./events.js?v=0.5.25";
+import { flushTimelineEvents } from "./events.js?v=0.5.27";
 import { getPlaybackTimeMs } from "./timeline.js?v=0.5.12";
 import {
   cellToPercent,
@@ -745,7 +745,13 @@ function interpolatePlayersLinear(previousPlayers, targetPlayers, t) {
     return {
       ...player,
       lane: clampFieldLane(lerp(previous.lane, player.lane, t), 0.18),
-      column: clampFieldColumn(lerp(previous.column, player.column, t), 0.18)
+      column: clampFieldColumn(lerp(previous.column, player.column, t), 0.18),
+      z: Math.max(0, lerp(previous.z ?? 0, player.z ?? 0, t)),
+      verticalVelocityZ: lerp(
+        previous.verticalVelocityZ ?? 0,
+        player.verticalVelocityZ ?? 0,
+        t
+      )
     };
   });
 }
@@ -772,7 +778,13 @@ function playerVisualPosition(previous, target, eased, rawT) {
   return {
     ...target,
     lane: clampFieldLane(lane, 0.18),
-    column: clampFieldColumn(column, 0.18)
+    column: clampFieldColumn(column, 0.18),
+    z: Math.max(0, lerp(previous.z ?? 0, target.z ?? 0, rawT)),
+    verticalVelocityZ: lerp(
+      previous.verticalVelocityZ ?? 0,
+      target.verticalVelocityZ ?? 0,
+      rawT
+    )
   };
 }
 
@@ -858,11 +870,19 @@ function renderPlayers(frame) {
 
     const position = cellToPercent(player.lane, player.column, { overflow: 0.2 });
     const hasControlledBall = isBallAtPlayer(frame.ball, player);
+    const z = Math.max(0, Number(player.z || 0));
+    const altitude = clamp(Math.sqrt(z / 520), 0, 1);
+    const lift = altitude * clamp(els.pitch.clientHeight * 0.075, 14, 46);
     el.style.left = `${position.x}%`;
     el.style.top = `${position.y}%`;
     el.style.zIndex = String(hasControlledBall ? 5 : 4);
     el.style.setProperty("--team-color", teamColor(player.team));
+    el.style.setProperty("--player-lift", `${lift}px`);
+    el.style.setProperty("--player-air-scale", String(1 + altitude * 0.14));
+    el.style.setProperty("--player-shadow-scale", String(1 - altitude * 0.46));
+    el.style.setProperty("--player-shadow-opacity", String(0.34 - altitude * 0.24));
     el.classList.toggle("hasBall", hasControlledBall);
+    el.classList.toggle("airborne", z >= 1);
     const demonHunterSprinting =
       player.hero === "dh" && Boolean(player.sprinting);
     el.classList.toggle("dhSprinting", demonHunterSprinting);
@@ -961,7 +981,14 @@ function createPlayerElement(player) {
   const icon = document.createElement("div");
   icon.className = "playerIcon";
 
-  el.append(label, icon);
+  const shadow = document.createElement("div");
+  shadow.className = "playerAltitudeShadow";
+
+  const body = document.createElement("div");
+  body.className = "playerBody";
+  body.append(label, icon);
+
+  el.append(shadow, body);
   return el;
 }
 

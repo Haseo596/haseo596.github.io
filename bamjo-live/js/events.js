@@ -159,6 +159,7 @@ function shouldSpawnEffect(event) {
   const hero = String(event.hero || "").toLowerCase();
   return (hero === "gohor" && hasTag(event, "gohor_projectile")) ||
     (hero === "warden" && hasTag(event, "warden_power")) ||
+    (hero === "blackhole" && hasTag(event, "blackhole")) ||
     (hero === "tree" &&
       (hasTag(event, "slam_charge") || hasTag(event, "slam_impact")));
 }

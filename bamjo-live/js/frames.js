@@ -64,6 +64,12 @@ export function normalizeFrame(message) {
       velocityColumn: Number(player.velocityColumn ?? player.VelocityColumn ?? 0),
       facingLane: Number(player.facingLane ?? player.FacingLane ?? 0),
       facingColumn: Number(player.facingColumn ?? player.FacingColumn ?? 0),
+      z: Math.max(0, finiteNumberOrNull(
+        player.z ?? player.Z ?? player.height ?? player.Height
+      ) ?? 0),
+      verticalVelocityZ: finiteNumberOrNull(
+        player.verticalVelocityZ ?? player.VerticalVelocityZ ?? player.verticalVelocity ?? player.VerticalVelocity
+      ) ?? 0,
       mana: Number(player.mana ?? player.Mana ?? 0),
       sprinting: Boolean(player.sprinting ?? player.IsSprinting),
       hasBall: Boolean(player.hasBall)
