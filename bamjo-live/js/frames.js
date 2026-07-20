@@ -15,6 +15,14 @@ export function normalizeFrame(message) {
     ball: {
       lane: normalizeCoordinate(readCoordinate(message.ball, "lane"), "lane", legacyGrid),
       column: normalizeCoordinate(readCoordinate(message.ball, "column"), "column", legacyGrid),
+      z: Math.max(0, finiteNumberOrNull(
+        message.ball?.z ?? message.ball?.height ?? message.ball?.Height
+      ) ?? 0),
+      verticalVelocityZ: finiteNumberOrNull(
+        message.ball?.verticalVelocityZ ??
+        message.ball?.verticalVelocity ??
+        message.ball?.VerticalVelocity
+      ) ?? 0,
       holderPlayerId: normalizeId(message.ball?.holderPlayerId),
       lastTouchPlayerId: normalizeId(message.ball?.lastTouchPlayerId),
       power: Number(message.ball?.power || 0),
@@ -90,6 +98,12 @@ export function normalizeFrame(message) {
         "column",
         legacyGrid
       ),
+      ballZ: Math.max(0, finiteNumberOrNull(
+        event.ballZ ?? event.BallZ ?? event.ballHeight
+      ) ?? 0),
+      ballVerticalVelocityZ: finiteNumberOrNull(
+        event.ballVerticalVelocityZ ?? event.BallVerticalVelocityZ
+      ) ?? 0,
       tags: (event.tags || []).map((tag) => String(tag)),
       visible: event.visible !== false
     }))

@@ -400,6 +400,7 @@ h1 {
 }
 
 .layer,
+.ballShadow,
 .ball {
   position: absolute;
   inset: 0;
@@ -413,6 +414,7 @@ h1 {
 .player,
 .object,
 .effect,
+.ballShadow::before,
 .ball::before {
   position: absolute;
 }
@@ -507,6 +509,24 @@ h1 {
   z-index: 20;
 }
 
+.ballShadow {
+  z-index: 3;
+}
+
+.ballShadow::before {
+  content: "";
+  width: clamp(14px, 2.2vw, 24px);
+  aspect-ratio: 1.65;
+  left: var(--ball-x, 50%);
+  top: var(--ball-y, 50%);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.72);
+  filter: blur(3px);
+  opacity: var(--ball-shadow-opacity, 0.34);
+  transform: translate(-50%, -50%) scale(var(--ball-shadow-scale, 1));
+  transform-origin: center;
+}
+
 .goalOverlay {
   position: absolute;
   inset: 0;
@@ -584,7 +604,9 @@ h1 {
     radial-gradient(circle at 46% 58%, #111 0 12%, transparent 13%),
     #f5f5f0;
   border: 1px solid rgba(0, 0, 0, 0.58);
-  box-shadow: 0 8px 14px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.46);
+  transform: translate(-50%, calc(-50% - var(--ball-lift, 0px))) scale(var(--ball-scale, 1));
+  transform-origin: center;
 }
 
 .ball.powerShot::before {
@@ -592,7 +614,7 @@ h1 {
   box-shadow:
     0 0 0 3px rgba(174, 220, 255, 0.44),
     0 0 18px 7px rgba(111, 181, 255, 0.76),
-    0 8px 14px rgba(0, 0, 0, 0.4);
+    0 2px 5px rgba(0, 0, 0, 0.46);
   animation: warden-ball-pulse 240ms ease-in-out infinite alternate;
 }
 

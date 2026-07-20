@@ -15,6 +15,7 @@ import {
 } from "./utils.js?v=0.5.12";
 
 let rosterSignature = null;
+const ballShadow = document.getElementById("ballShadow");
 
 export function renderFrame(now) {
   const playbackTimeMs = state.usesTimeline ? getPlaybackTimeMs() : null;
@@ -334,7 +335,13 @@ function interpolateBall(previousFrame, targetFrame, visualPlayers, t, now) {
     return {
       ...targetFrame.ball,
       lane: lerp(previousBall.lane, targetFrame.ball.lane, t),
-      column: lerp(previousBall.column, targetFrame.ball.column, t)
+      column: lerp(previousBall.column, targetFrame.ball.column, t),
+      z: lerp(previousBall.z ?? 0, targetFrame.ball.z ?? 0, t),
+      verticalVelocityZ: lerp(
+        previousBall.verticalVelocityZ ?? 0,
+        targetFrame.ball.verticalVelocityZ ?? 0,
+        t
+      )
     };
   }
 
@@ -347,7 +354,13 @@ function interpolateBall(previousFrame, targetFrame, visualPlayers, t, now) {
     ...targetFrame.ball,
     holderPlayerId: catching ? null : targetFrame.ball.holderPlayerId,
     lane: lerp(previousBall.lane, targetFrame.ball.lane, t),
-    column: lerp(previousBall.column, targetFrame.ball.column, t)
+    column: lerp(previousBall.column, targetFrame.ball.column, t),
+    z: lerp(previousBall.z ?? 0, targetFrame.ball.z ?? 0, t),
+    verticalVelocityZ: lerp(
+      previousBall.verticalVelocityZ ?? 0,
+      targetFrame.ball.verticalVelocityZ ?? 0,
+      t
+    )
   };
 }
 
@@ -379,7 +392,13 @@ function interpolateVisualBall(previousBall, targetBall, t) {
       ? Boolean(targetBall?.powerShot)
       : Boolean(previousBall?.powerShot),
     lane: lerp(previousBall?.lane ?? targetBall?.lane ?? 1, targetBall?.lane ?? previousBall?.lane ?? 1, t),
-    column: lerp(previousBall?.column ?? targetBall?.column ?? 3, targetBall?.column ?? previousBall?.column ?? 3, t)
+    column: lerp(previousBall?.column ?? targetBall?.column ?? 3, targetBall?.column ?? previousBall?.column ?? 3, t),
+    z: lerp(previousBall?.z ?? 0, targetBall?.z ?? 0, t),
+    verticalVelocityZ: lerp(
+      previousBall?.verticalVelocityZ ?? 0,
+      targetBall?.verticalVelocityZ ?? 0,
+      t
+    )
   };
 }
 
@@ -905,9 +924,25 @@ function renderObjects(frame) {
 
 function renderBall(frame) {
   const position = cellToPercent(frame.ball.lane, frame.ball.column, { overflow: 0.48 });
+  const z = Math.max(0, Number(frame.ball.z || 0));
+  const altitude = clamp(Math.sqrt(z / 520), 0, 1);
+  const lift = altitude * clamp(els.pitch.clientHeight * 0.05, 10, 28);
+  const scale = 1 + altitude * 0.46;
+  const shadowScale = 1 - altitude * 0.42;
+  const shadowOpacity = 0.34 - altitude * 0.22;
+
   els.ball.style.setProperty("--ball-x", `${position.x}%`);
   els.ball.style.setProperty("--ball-y", `${position.y}%`);
+  els.ball.style.setProperty("--ball-lift", `${lift}px`);
+  els.ball.style.setProperty("--ball-scale", String(scale));
   els.ball.classList.toggle("powerShot", Boolean(frame.ball.powerShot));
+
+  if (ballShadow) {
+    ballShadow.style.setProperty("--ball-x", `${position.x}%`);
+    ballShadow.style.setProperty("--ball-y", `${position.y}%`);
+    ballShadow.style.setProperty("--ball-shadow-scale", String(shadowScale));
+    ballShadow.style.setProperty("--ball-shadow-opacity", String(shadowOpacity));
+  }
 }
 
 function isBallAtPlayer(ball, player) {
