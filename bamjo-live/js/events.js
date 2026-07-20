@@ -158,7 +158,9 @@ function spawnEffectOnce(event, frame) {
 function shouldSpawnEffect(event) {
   const hero = String(event.hero || "").toLowerCase();
   return (hero === "gohor" && hasTag(event, "gohor_projectile")) ||
-    (hero === "warden" && hasTag(event, "warden_power"));
+    (hero === "warden" && hasTag(event, "warden_power")) ||
+    (hero === "tree" &&
+      (hasTag(event, "slam_charge") || hasTag(event, "slam_impact")));
 }
 
 function spawnEffect(event, frame) {
@@ -178,6 +180,12 @@ function spawnEffect(event, frame) {
     return;
   }
 
+  if (String(event.hero || "").toLowerCase() === "tree" &&
+      (hasTag(event, "slam_charge") || hasTag(event, "slam_impact"))) {
+    spawnTreeSlamEffect(event, frame);
+    return;
+  }
+
   const point = effectPoint(event, frame);
   const position = cellToPercent(point.lane, point.column);
   const el = document.createElement("div");
@@ -187,6 +195,20 @@ function spawnEffect(event, frame) {
   el.style.setProperty("--team-color", event.team ? teamColor(event.team) : "var(--gold)");
   els.effectsLayer.appendChild(el);
   setTimeout(() => el.remove(), effectDuration(event));
+}
+
+function spawnTreeSlamEffect(event, frame) {
+  const point = effectPoint(event, frame);
+  const position = cellToPercent(point.lane, point.column);
+  const phase = hasTag(event, "slam_impact") ? "impact" : "charge";
+  const durationMs = phase === "impact" ? 760 : 360;
+  const el = document.createElement("div");
+  el.className = `treeSlamEffect ${phase}`;
+  el.style.left = `${position.x}%`;
+  el.style.top = `${position.y}%`;
+  el.style.setProperty("--team-color", event.team ? teamColor(event.team) : "#d8e5a4");
+  els.effectsLayer.appendChild(el);
+  setTimeout(() => el.remove(), durationMs + 80);
 }
 
 function spawnWardenEffect(event, frame) {
