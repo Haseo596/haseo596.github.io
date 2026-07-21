@@ -159,6 +159,9 @@ function shouldSpawnEffect(event) {
   const hero = String(event.hero || "").toLowerCase();
   return (hero === "gohor" && hasTag(event, "gohor_projectile")) ||
     (hero === "warden" && hasTag(event, "warden_power")) ||
+    (hero === "shaman" &&
+      hasTag(event, "shaman_tackle") &&
+      hasTag(event, "dash_start")) ||
     (hero === "blackhole" && hasTag(event, "blackhole")) ||
     (hero === "tree" &&
       (hasTag(event, "slam_charge") || hasTag(event, "slam_impact")));
@@ -178,6 +181,13 @@ function spawnEffect(event, frame) {
   if (String(event.hero || "").toLowerCase() === "warden" &&
       hasTag(event, "warden_power")) {
     spawnWardenEffect(event, frame);
+    return;
+  }
+
+  if (String(event.hero || "").toLowerCase() === "shaman" &&
+      hasTag(event, "shaman_tackle") &&
+      hasTag(event, "dash_start")) {
+    spawnShamanDashEffect(event, frame);
     return;
   }
 
@@ -246,6 +256,33 @@ function spawnGohorProjectile(event, frame) {
   el.style.setProperty("--to-x", `${to.x}%`);
   el.style.setProperty("--to-y", `${to.y}%`);
   el.style.setProperty("--flight-duration", `${durationMs}ms`);
+  els.effectsLayer.appendChild(el);
+  setTimeout(() => el.remove(), durationMs + 80);
+}
+
+function spawnShamanDashEffect(event, frame) {
+  const start = actorPoint(event, frame);
+  const end = effectPoint(event, frame);
+  const from = cellToPercent(start.lane, start.column);
+  const to = cellToPercent(end.lane, end.column);
+  const bounds = els.effectsLayer.getBoundingClientRect();
+  const dx = (to.x - from.x) * bounds.width / 100;
+  const dy = (to.y - from.y) * bounds.height / 100;
+  const fieldDistance = Math.hypot(
+    end.lane - start.lane,
+    end.column - start.column);
+  const durationMs = Math.round(Math.max(
+    120,
+    Math.min(470, fieldDistance / 21.408 * 1000)));
+  const el = document.createElement("div");
+  el.className = "shamanDashEffect";
+  el.style.setProperty("--from-x", `${from.x}%`);
+  el.style.setProperty("--from-y", `${from.y}%`);
+  el.style.setProperty("--to-x", `${to.x}%`);
+  el.style.setProperty("--to-y", `${to.y}%`);
+  el.style.setProperty("--dash-angle", `${Math.atan2(dy, dx)}rad`);
+  el.style.setProperty("--dash-duration", `${durationMs}ms`);
+  el.style.setProperty("--team-color", event.team ? teamColor(event.team) : "#eec85f");
   els.effectsLayer.appendChild(el);
   setTimeout(() => el.remove(), durationMs + 80);
 }

@@ -12,7 +12,7 @@ export const field = {
   goalkeeperAreaDepth: 416 * coordinateUnitsPerWarcraftUnit,
   goalkeeperAreaHeight: 896 * coordinateUnitsPerWarcraftUnit,
   goalDepth,
-  goalInteriorHeight: 448 * coordinateUnitsPerWarcraftUnit
+  goalInteriorHeight: 576 * coordinateUnitsPerWarcraftUnit
 };
 export const maxEvents = 36;
 export const reconnectDelayMs = 2500;

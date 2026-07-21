@@ -738,6 +738,46 @@ h1 {
   box-shadow: 0 0 7px #ffaaa2, 0 0 16px rgba(239, 63, 63, 0.9);
 }
 
+.shamanDashEffect {
+  position: absolute;
+  left: var(--from-x);
+  top: var(--from-y);
+  z-index: 14;
+  width: clamp(26px, 3.2vw, 48px);
+  height: clamp(7px, 0.8vw, 11px);
+  pointer-events: none;
+  transform: translate(-50%, -50%) rotate(var(--dash-angle));
+  transform-origin: center;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0,
+    color-mix(in srgb, var(--team-color) 42%, #fff3ad 58%) 62%,
+    #ffffff 100%);
+  box-shadow: 0 0 8px var(--team-color);
+  animation: shaman-dash-flight var(--dash-duration) linear forwards;
+}
+
+.shamanDashEffect::before,
+.shamanDashEffect::after {
+  content: "";
+  position: absolute;
+  right: 40%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--team-color));
+  filter: drop-shadow(0 0 3px var(--team-color));
+}
+
+.shamanDashEffect::before {
+  top: -5px;
+  width: 145%;
+}
+
+.shamanDashEffect::after {
+  bottom: -5px;
+  width: 110%;
+}
+
 .wardenEffect {
   position: absolute;
   left: 50%;
@@ -1187,6 +1227,28 @@ h1 {
     top: var(--to-y);
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes shaman-dash-flight {
+  0% {
+    left: var(--from-x);
+    top: var(--from-y);
+    opacity: 0;
+  }
+
+  12% {
+    opacity: 0.95;
+  }
+
+  78% {
+    opacity: 0.82;
+  }
+
+  100% {
+    left: var(--to-x);
+    top: var(--to-y);
+    opacity: 0;
   }
 }
 
