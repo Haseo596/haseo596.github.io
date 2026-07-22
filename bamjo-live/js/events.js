@@ -1,5 +1,5 @@
 import { els, field, maxEvents, state } from "./state.js?v=0.5.12";
-import { cellToPercent, formatMatchTime, teamColor, trimSet } from "./utils.js?v=0.5.12";
+import { cellToPercent, formatMatchTime, heroImage, teamColor, trimSet } from "./utils.js?v=0.5.12";
 
 const eventScrollBottomTolerance = 24;
 const pausedEventLimit = maxEvents * 8;
@@ -263,28 +263,39 @@ function spawnGohorProjectile(event, frame) {
 function spawnShamanDashEffect(event, frame) {
   const start = actorPoint(event, frame);
   const end = effectPoint(event, frame);
-  const from = cellToPercent(start.lane, start.column);
-  const to = cellToPercent(end.lane, end.column);
-  const bounds = els.effectsLayer.getBoundingClientRect();
-  const dx = (to.x - from.x) * bounds.width / 100;
-  const dy = (to.y - from.y) * bounds.height / 100;
   const fieldDistance = Math.hypot(
     end.lane - start.lane,
     end.column - start.column);
   const durationMs = Math.round(Math.max(
     120,
     Math.min(470, fieldDistance / 21.408 * 1000)));
-  const el = document.createElement("div");
-  el.className = "shamanDashEffect";
-  el.style.setProperty("--from-x", `${from.x}%`);
-  el.style.setProperty("--from-y", `${from.y}%`);
-  el.style.setProperty("--to-x", `${to.x}%`);
-  el.style.setProperty("--to-y", `${to.y}%`);
-  el.style.setProperty("--dash-angle", `${Math.atan2(dy, dx)}rad`);
-  el.style.setProperty("--dash-duration", `${durationMs}ms`);
-  el.style.setProperty("--team-color", event.team ? teamColor(event.team) : "#eec85f");
-  els.effectsLayer.appendChild(el);
-  setTimeout(() => el.remove(), durationMs + 80);
+  const mapStepDistance = 44.6 * 1.5 / 100;
+  const shadowCount = Math.max(
+    2,
+    Math.min(15, Math.ceil(fieldDistance / mapStepDistance)));
+  const layer = els.playersLayer || els.effectsLayer;
+
+  for (let index = 0; index < shadowCount; index++) {
+    const progress = shadowCount === 1 ? 0 : index / (shadowCount - 1);
+    const delayMs = Math.round(progress * durationMs);
+    const timer = setTimeout(() => {
+      state.pendingTimers.delete(timer);
+      const point = cellToPercent(
+        start.lane + (end.lane - start.lane) * progress,
+        start.column + (end.column - start.column) * progress);
+      const el = document.createElement("div");
+      el.className = "shamanAfterimage";
+      el.style.left = `${point.x}%`;
+      el.style.top = `${point.y}%`;
+      el.style.backgroundImage = `url("${heroImage("shaman")}")`;
+      el.style.setProperty(
+        "--team-color",
+        event.team ? teamColor(event.team) : "#8ea1ff");
+      layer.appendChild(el);
+      setTimeout(() => el.remove(), 1480);
+    }, delayMs);
+    state.pendingTimers.add(timer);
+  }
 }
 
 function actorPoint(event, frame) {
