@@ -159,6 +159,9 @@ function shouldSpawnEffect(event) {
   const hero = String(event.hero || "").toLowerCase();
   return (hero === "gohor" && hasTag(event, "gohor_projectile")) ||
     (hero === "warden" && hasTag(event, "warden_power")) ||
+    (hero === "sorc" &&
+      hasTag(event, "sorc_pull") &&
+      hasTag(event, "pull_start")) ||
     (hero === "shaman" &&
       hasTag(event, "shaman_tackle") &&
       hasTag(event, "dash_start")) ||
@@ -181,6 +184,13 @@ function spawnEffect(event, frame) {
   if (String(event.hero || "").toLowerCase() === "warden" &&
       hasTag(event, "warden_power")) {
     spawnWardenEffect(event, frame);
+    return;
+  }
+
+  if (String(event.hero || "").toLowerCase() === "sorc" &&
+      hasTag(event, "sorc_pull") &&
+      hasTag(event, "pull_start")) {
+    spawnSorcPullEffect(event);
     return;
   }
 
@@ -296,6 +306,65 @@ function spawnShamanDashEffect(event, frame) {
     }, delayMs);
     state.pendingTimers.add(timer);
   }
+}
+
+function spawnSorcPullEffect(event) {
+  const actorKey = event.actorId === null || event.actorId === undefined
+    ? null
+    : String(event.actorId);
+  if (!actorKey) {
+    return;
+  }
+
+  const el = document.createElement("div");
+  el.className = "sorcLightning";
+  els.effectsLayer.appendChild(el);
+
+  const startedAt = performance.now();
+  const maximumDurationMs = 4500;
+  const minimumVisibleMs = 180;
+  let animationFrame = 0;
+
+  const remove = () => {
+    cancelAnimationFrame(animationFrame);
+    el.remove();
+  };
+
+  const update = (now) => {
+    if (!el.isConnected || now - startedAt >= maximumDurationMs) {
+      remove();
+      return;
+    }
+
+    const actor = state.playerEls.get(actorKey);
+    if (!actor || !els.ball.isConnected) {
+      animationFrame = requestAnimationFrame(update);
+      return;
+    }
+    if (now - startedAt >= minimumVisibleMs && actor.classList.contains("hasBall")) {
+      remove();
+      return;
+    }
+
+    const layerBounds = els.effectsLayer.getBoundingClientRect();
+    const actorBounds = (actor.querySelector(".playerIcon") || actor)
+      .getBoundingClientRect();
+    const ballBounds = els.ball.getBoundingClientRect();
+    const fromX = actorBounds.left + actorBounds.width / 2 - layerBounds.left;
+    const fromY = actorBounds.top + actorBounds.height / 2 - layerBounds.top;
+    const toX = ballBounds.left + ballBounds.width / 2 - layerBounds.left;
+    const toY = ballBounds.top + ballBounds.height / 2 - layerBounds.top;
+    const deltaX = toX - fromX;
+    const deltaY = toY - fromY;
+
+    el.style.left = `${fromX}px`;
+    el.style.top = `${fromY}px`;
+    el.style.width = `${Math.max(2, Math.hypot(deltaX, deltaY))}px`;
+    el.style.transform = `translateY(-50%) rotate(${Math.atan2(deltaY, deltaX)}rad)`;
+    animationFrame = requestAnimationFrame(update);
+  };
+
+  animationFrame = requestAnimationFrame(update);
 }
 
 function actorPoint(event, frame) {

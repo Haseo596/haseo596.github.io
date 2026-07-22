@@ -754,6 +754,61 @@ h1 {
   animation: shaman-afterimage 1400ms linear forwards;
 }
 
+.sorcLightning {
+  position: absolute;
+  z-index: 16;
+  height: 14px;
+  pointer-events: none;
+  transform-origin: 0 50%;
+  will-change: left, top, width, transform;
+}
+
+.sorcLightning::before,
+.sorcLightning::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 100%;
+  height: 12px;
+  transform: translateY(-50%);
+  clip-path: polygon(
+    0 48%,
+    9% 24%,
+    17% 66%,
+    27% 31%,
+    38% 72%,
+    49% 25%,
+    60% 63%,
+    71% 30%,
+    82% 69%,
+    91% 35%,
+    100% 52%,
+    91% 58%,
+    82% 83%,
+    71% 44%,
+    60% 78%,
+    49% 39%,
+    38% 84%,
+    27% 45%,
+    17% 80%,
+    9% 40%
+  );
+}
+
+.sorcLightning::before {
+  background: #7dff78;
+  filter: drop-shadow(0 0 2px #d5ffd0) drop-shadow(0 0 5px #32dc48);
+  animation: sorc-lightning-flicker 110ms steps(2, end) infinite;
+}
+
+.sorcLightning::after {
+  height: 18px;
+  background: rgba(39, 226, 72, 0.48);
+  filter: blur(5px);
+  animation: sorc-lightning-flicker 150ms steps(2, end) infinite reverse;
+}
+
 .wardenEffect {
   position: absolute;
   left: 50%;
@@ -1223,6 +1278,21 @@ h1 {
   100% {
     opacity: 0;
     transform: translate(-50%, -50%) scale(0.94);
+  }
+}
+
+@keyframes sorc-lightning-flicker {
+  0% {
+    opacity: 0.72;
+    scale: 1 0.72;
+  }
+  50% {
+    opacity: 1;
+    scale: 1 1.08;
+  }
+  100% {
+    opacity: 0.82;
+    scale: 1 0.88;
   }
 }
 
