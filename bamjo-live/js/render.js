@@ -128,7 +128,12 @@ function getVisualTimelineFrame(playbackTimeMs) {
   const nextTime = frameTime(next);
   const span = Math.max(1, nextTime - previousTime);
   const t = previous === next ? 0 : clamp((playbackTimeMs - previousTime) / span, 0, 1);
-  const players = interpolatePlayersLinear(previous.players, next.players, t);
+  const players = interpolatePlayersLinear(
+    previous.players,
+    next.players,
+    t,
+    next.teleportPlayerIds
+  );
   const visualTick = lerp(previous.tick, next.tick, t);
 
   return {
@@ -137,7 +142,12 @@ function getVisualTimelineFrame(playbackTimeMs) {
     visualTick,
     visual: true,
     players,
-    ball: interpolateVisualBall(previous.ball, next.ball, t)
+    ball: interpolateVisualBall(
+      previous.ball,
+      next.ball,
+      t,
+      next.ballTeleported
+    )
   };
 }
 
@@ -377,7 +387,13 @@ function continuousTimelineFrame(frame) {
   };
 }
 
-function interpolateVisualBall(previousBall, targetBall, t) {
+function interpolateVisualBall(
+  previousBall,
+  targetBall,
+  t,
+  targetIsTeleport = false
+) {
+  const interpolationT = targetIsTeleport && t < 1 ? 0 : t;
   const previousHolderId = previousBall?.holderPlayerId;
   const targetHolderId = targetBall?.holderPlayerId;
   const sameHolder =
@@ -390,35 +406,35 @@ function interpolateVisualBall(previousBall, targetBall, t) {
   return {
     ...targetBall,
     holderPlayerId: sameHolder ? targetHolderId : null,
-    powerShot: t >= 0.999
+    powerShot: interpolationT >= 0.999
       ? Boolean(targetBall?.powerShot)
       : Boolean(previousBall?.powerShot),
-    angelicKick: t >= 0.999
+    angelicKick: interpolationT >= 0.999
       ? Boolean(targetBall?.angelicKick)
       : Boolean(previousBall?.angelicKick),
-    curveActive: t >= 0.999
+    curveActive: interpolationT >= 0.999
       ? Boolean(targetBall?.curveActive)
       : Boolean(previousBall?.curveActive),
-    curveSide: t >= 0.999
+    curveSide: interpolationT >= 0.999
       ? Number(targetBall?.curveSide || 0)
       : Number(previousBall?.curveSide || 0),
     velocityLane: lerp(
       previousBall?.velocityLane ?? 0,
       targetBall?.velocityLane ?? 0,
-      t
+      interpolationT
     ),
     velocityColumn: lerp(
       previousBall?.velocityColumn ?? 0,
       targetBall?.velocityColumn ?? 0,
-      t
+      interpolationT
     ),
-    lane: lerp(previousBall?.lane ?? targetBall?.lane ?? 1, targetBall?.lane ?? previousBall?.lane ?? 1, t),
-    column: lerp(previousBall?.column ?? targetBall?.column ?? 3, targetBall?.column ?? previousBall?.column ?? 3, t),
-    z: lerp(previousBall?.z ?? 0, targetBall?.z ?? 0, t),
+    lane: lerp(previousBall?.lane ?? targetBall?.lane ?? 1, targetBall?.lane ?? previousBall?.lane ?? 1, interpolationT),
+    column: lerp(previousBall?.column ?? targetBall?.column ?? 3, targetBall?.column ?? previousBall?.column ?? 3, interpolationT),
+    z: lerp(previousBall?.z ?? 0, targetBall?.z ?? 0, interpolationT),
     verticalVelocityZ: lerp(
       previousBall?.verticalVelocityZ ?? 0,
       targetBall?.verticalVelocityZ ?? 0,
-      t
+      interpolationT
     )
   };
 }
@@ -758,20 +774,31 @@ function interpolatePlayers(previousPlayers, targetPlayers, t) {
   });
 }
 
-function interpolatePlayersLinear(previousPlayers, targetPlayers, t) {
+function interpolatePlayersLinear(
+  previousPlayers,
+  targetPlayers,
+  t,
+  teleportPlayerIds = []
+) {
   const previousMap = new Map(previousPlayers.map((player) => [String(player.id), player]));
+  const teleportIds = new Set(teleportPlayerIds.map(String));
 
   return targetPlayers.map((player) => {
     const previous = previousMap.get(String(player.id)) || player;
+    const isPendingTeleport =
+      teleportIds.has(String(player.id)) &&
+      t < 1;
+    const interpolationT = isPendingTeleport ? 0 : t;
+    const visualPlayer = isPendingTeleport ? previous : player;
     return {
-      ...player,
-      lane: clampFieldLane(lerp(previous.lane, player.lane, t), 0.18),
-      column: clampFieldColumn(lerp(previous.column, player.column, t), 0.18),
-      z: Math.max(0, lerp(previous.z ?? 0, player.z ?? 0, t)),
+      ...visualPlayer,
+      lane: clampFieldLane(lerp(previous.lane, player.lane, interpolationT), 0.18),
+      column: clampFieldColumn(lerp(previous.column, player.column, interpolationT), 0.18),
+      z: Math.max(0, lerp(previous.z ?? 0, player.z ?? 0, interpolationT)),
       verticalVelocityZ: lerp(
         previous.verticalVelocityZ ?? 0,
         player.verticalVelocityZ ?? 0,
-        t
+        interpolationT
       )
     };
   });

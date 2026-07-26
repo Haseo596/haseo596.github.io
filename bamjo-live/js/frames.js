@@ -8,6 +8,10 @@ export function normalizeFrame(message) {
     tick: Number(message.tick || 0),
     timeMs: finiteNumberOrNull(message.timeMs),
     status: message.status || "running",
+    teleportPlayerIds: (message.teleportPlayerIds || [])
+      .map(normalizeId)
+      .filter((id) => id !== null),
+    ballTeleported: Boolean(message.ballTeleported),
     score: {
       red: Number(message.score?.red || 0),
       blue: Number(message.score?.blue || 0)
