@@ -349,11 +349,16 @@ function spawnSorcPullEffect(event) {
     const layerBounds = els.effectsLayer.getBoundingClientRect();
     const actorBounds = (actor.querySelector(".playerIcon") || actor)
       .getBoundingClientRect();
-    const ballBounds = els.ball.getBoundingClientRect();
     const fromX = actorBounds.left + actorBounds.width / 2 - layerBounds.left;
     const fromY = actorBounds.top + actorBounds.height / 2 - layerBounds.top;
-    const toX = ballBounds.left + ballBounds.width / 2 - layerBounds.left;
-    const toY = ballBounds.top + ballBounds.height / 2 - layerBounds.top;
+    const ballXPercent = Number.parseFloat(els.ball.style.getPropertyValue("--ball-x"));
+    const ballYPercent = Number.parseFloat(els.ball.style.getPropertyValue("--ball-y"));
+    const ballLift = Number.parseFloat(els.ball.style.getPropertyValue("--ball-lift"));
+    const toX = layerBounds.width *
+      (Number.isFinite(ballXPercent) ? ballXPercent : 50) / 100;
+    const toY = layerBounds.height *
+      (Number.isFinite(ballYPercent) ? ballYPercent : 50) / 100 -
+      (Number.isFinite(ballLift) ? ballLift : 0);
     const deltaX = toX - fromX;
     const deltaY = toY - fromY;
 

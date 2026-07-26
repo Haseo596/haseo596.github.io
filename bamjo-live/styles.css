@@ -757,7 +757,7 @@ h1 {
 .sorcLightning {
   position: absolute;
   z-index: 16;
-  height: 14px;
+  height: 28px;
   pointer-events: none;
   transform-origin: 0 50%;
   will-change: left, top, width, transform;
@@ -770,7 +770,7 @@ h1 {
   left: 0;
   top: 50%;
   width: 100%;
-  height: 12px;
+  height: 24px;
   transform: translateY(-50%);
   clip-path: polygon(
     0 48%,
@@ -803,7 +803,7 @@ h1 {
 }
 
 .sorcLightning::after {
-  height: 18px;
+  height: 36px;
   background: rgba(39, 226, 72, 0.48);
   filter: blur(5px);
   animation: sorc-lightning-flicker 150ms steps(2, end) infinite reverse;
