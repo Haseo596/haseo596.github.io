@@ -6,6 +6,7 @@ const pausedEventLimit = maxEvents * 8;
 const swapProjectileSpeed = 21.312;
 const swapProjectileMaximumDurationMs = 1800;
 const activeSwapProjectiles = new Map();
+const activeSorcPulls = new Map();
 let followLatestEvent = true;
 let selectedEventKey = null;
 
@@ -164,7 +165,8 @@ function shouldSpawnEffect(event) {
     (hero === "warden" && hasTag(event, "warden_power")) ||
     (hero === "sorc" &&
       hasTag(event, "sorc_pull") &&
-      hasTag(event, "pull_start")) ||
+      (hasTag(event, "pull_start") ||
+        hasTag(event, "pull_cancel"))) ||
     (hero === "swap" &&
       (hasTag(event, "swap_projectile") ||
         hasTag(event, "swap_impact"))) ||
@@ -194,9 +196,12 @@ function spawnEffect(event, frame) {
   }
 
   if (String(event.hero || "").toLowerCase() === "sorc" &&
-      hasTag(event, "sorc_pull") &&
-      hasTag(event, "pull_start")) {
-    spawnSorcPullEffect(event);
+      hasTag(event, "sorc_pull")) {
+    if (hasTag(event, "pull_cancel")) {
+      stopActiveSorcPull(event.actorId);
+    } else if (hasTag(event, "pull_start")) {
+      spawnSorcPullEffect(event);
+    }
     return;
   }
 
@@ -331,6 +336,7 @@ function spawnSorcPullEffect(event) {
     return;
   }
 
+  stopActiveSorcPull(actorKey);
   const el = document.createElement("div");
   el.className = "sorcLightning";
   els.effectsLayer.appendChild(el);
@@ -343,7 +349,11 @@ function spawnSorcPullEffect(event) {
   const remove = () => {
     cancelAnimationFrame(animationFrame);
     el.remove();
+    if (activeSorcPulls.get(actorKey)?.element === el) {
+      activeSorcPulls.delete(actorKey);
+    }
   };
+  activeSorcPulls.set(actorKey, { element: el, remove });
 
   const update = (now) => {
     if (!el.isConnected || now - startedAt >= maximumDurationMs) {
@@ -385,6 +395,17 @@ function spawnSorcPullEffect(event) {
   };
 
   animationFrame = requestAnimationFrame(update);
+}
+
+function stopActiveSorcPull(actorId) {
+  if (actorId === null || actorId === undefined) {
+    return;
+  }
+
+  const active = activeSorcPulls.get(String(actorId));
+  if (active) {
+    active.remove();
+  }
 }
 
 function spawnSwapProjectileEffect(event, frame) {

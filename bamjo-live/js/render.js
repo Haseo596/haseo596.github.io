@@ -1,6 +1,6 @@
 import { els, field, state, tickAnimationStretch } from "./state.js?v=0.5.12";
 import { projectBallPhysics } from "./ballPhysics.js?v=0.5.12";
-import { flushTimelineEvents } from "./events.js?v=0.5.33";
+import { flushTimelineEvents } from "./events.js?v=0.5.34";
 import { getPlaybackTimeMs } from "./timeline.js?v=0.5.12";
 import {
   cellToPercent,
