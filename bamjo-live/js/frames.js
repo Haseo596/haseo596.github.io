@@ -27,6 +27,7 @@ export function normalizeFrame(message) {
       lastTouchPlayerId: normalizeId(message.ball?.lastTouchPlayerId),
       power: Number(message.ball?.power || 0),
       powerShot: Boolean(message.ball?.powerShot),
+      angelicKick: Boolean(message.ball?.angelicKick),
       curveActive: Boolean(message.ball?.curveActive),
       curveSide: Math.sign(Number(message.ball?.curveSide || 0)),
       remainingSteps: Number(message.ball?.remainingSteps || 0),
@@ -84,6 +85,7 @@ export function normalizeFrame(message) {
       ) ?? 0,
       mana: Number(player.mana ?? player.Mana ?? 0),
       sprinting: Boolean(player.sprinting ?? player.IsSprinting),
+      divineEndurance: Boolean(player.divineEndurance ?? player.IsDivineEnduranceActive),
       hasBall: Boolean(player.hasBall)
     })),
     objects: (message.objects || []).map((object) => ({

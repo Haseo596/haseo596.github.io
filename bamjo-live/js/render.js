@@ -1,6 +1,6 @@
 import { els, field, state, tickAnimationStretch } from "./state.js?v=0.5.12";
 import { projectBallPhysics } from "./ballPhysics.js?v=0.5.12";
-import { flushTimelineEvents } from "./events.js?v=0.5.34";
+import { flushTimelineEvents } from "./events.js?v=0.5.36";
 import { getPlaybackTimeMs } from "./timeline.js?v=0.5.12";
 import {
   cellToPercent,
@@ -17,6 +17,7 @@ import {
 let rosterSignature = null;
 const ballShadow = document.getElementById("ballShadow");
 const curveTrail = document.getElementById("curveTrail");
+const angelTrail = document.getElementById("angelTrail");
 
 export function renderFrame(now) {
   const playbackTimeMs = state.usesTimeline ? getPlaybackTimeMs() : null;
@@ -392,6 +393,9 @@ function interpolateVisualBall(previousBall, targetBall, t) {
     powerShot: t >= 0.999
       ? Boolean(targetBall?.powerShot)
       : Boolean(previousBall?.powerShot),
+    angelicKick: t >= 0.999
+      ? Boolean(targetBall?.angelicKick)
+      : Boolean(previousBall?.angelicKick),
     curveActive: t >= 0.999
       ? Boolean(targetBall?.curveActive)
       : Boolean(previousBall?.curveActive),
@@ -903,6 +907,11 @@ function renderPlayers(frame) {
     const demonHunterSprinting =
       player.hero === "dh" && Boolean(player.sprinting);
     el.classList.toggle("dhSprinting", demonHunterSprinting);
+    const divineEndurance =
+      player.hero === "angel" &&
+      Boolean(player.divineEndurance) &&
+      hasControlledBall;
+    el.classList.toggle("angelEndurance", divineEndurance);
     if (demonHunterSprinting) {
       const velocityLane = Number(player.velocityLane ?? 0);
       const velocityColumn = Number(player.velocityColumn ?? 0);
@@ -973,6 +982,7 @@ function renderBall(frame) {
   els.ball.style.setProperty("--ball-lift", `${lift}px`);
   els.ball.style.setProperty("--ball-scale", String(scale));
   els.ball.classList.toggle("powerShot", Boolean(frame.ball.powerShot));
+  els.ball.classList.toggle("angelicKick", Boolean(frame.ball.angelicKick));
 
   if (curveTrail) {
     const velocityLane = Number(frame.ball.velocityLane || 0);
@@ -997,6 +1007,34 @@ function renderBall(frame) {
         els.pitch.clientHeight;
       curveTrail.style.setProperty(
         "--curve-angle",
+        `${Math.atan2(verticalPixels, horizontalPixels)}rad`
+      );
+    }
+  }
+
+  if (angelTrail) {
+    const velocityLane = Number(frame.ball.velocityLane || 0);
+    const velocityColumn = Number(frame.ball.velocityColumn || 0);
+    const speed = Math.hypot(velocityLane, velocityColumn);
+    const active =
+      Boolean(frame.ball.angelicKick) &&
+      frame.ball.holderPlayerId === null &&
+      speed > 0.01;
+    angelTrail.classList.toggle("active", active);
+    angelTrail.style.setProperty("--ball-x", `${position.x}%`);
+    angelTrail.style.setProperty("--ball-y", `${position.y}%`);
+    angelTrail.style.setProperty("--ball-lift", `${lift}px`);
+    if (active) {
+      const horizontalPixels =
+        velocityColumn /
+        Math.max(1, Number(field.playableColumns || field.columns)) *
+        els.pitch.clientWidth;
+      const verticalPixels =
+        velocityLane /
+        Math.max(1, Number(field.lanes)) *
+        els.pitch.clientHeight;
+      angelTrail.style.setProperty(
+        "--angel-angle",
         `${Math.atan2(verticalPixels, horizontalPixels)}rad`
       );
     }

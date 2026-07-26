@@ -1,5 +1,6 @@
 import { els, field, maxEvents, state } from "./state.js?v=0.5.12";
 import { cellToPercent, formatMatchTime, heroImage, teamColor, trimSet } from "./utils.js?v=0.5.12";
+import { playAngelicKickSound } from "./sound.js?v=0.5.36";
 
 const eventScrollBottomTolerance = 24;
 const pausedEventLimit = maxEvents * 8;
@@ -175,11 +176,19 @@ function shouldSpawnEffect(event) {
       hasTag(event, "dash_start")) ||
     (hero === "blackhole" && hasTag(event, "blackhole")) ||
     (hero === "tree" &&
-      (hasTag(event, "slam_charge") || hasTag(event, "slam_impact")));
+      (hasTag(event, "slam_charge") || hasTag(event, "slam_impact"))) ||
+    (hero === "angel" && hasTag(event, "angelic_kick"));
 }
 
 function spawnEffect(event, frame) {
   if (!els.effectsLayer) {
+    return;
+  }
+
+  if (String(event.hero || "").toLowerCase() === "angel" &&
+      hasTag(event, "angelic_kick")) {
+    spawnAngelKickEffect(event, frame);
+    playAngelicKickSound();
     return;
   }
 
@@ -236,6 +245,17 @@ function spawnEffect(event, frame) {
   el.style.setProperty("--team-color", event.team ? teamColor(event.team) : "var(--gold)");
   els.effectsLayer.appendChild(el);
   setTimeout(() => el.remove(), effectDuration(event));
+}
+
+function spawnAngelKickEffect(event, frame) {
+  const point = actorPoint(event, frame);
+  const position = cellToPercent(point.lane, point.column);
+  const el = document.createElement("div");
+  el.className = "angelKickEffect";
+  el.style.left = `${position.x}%`;
+  el.style.top = `${position.y}%`;
+  els.effectsLayer.appendChild(el);
+  setTimeout(() => el.remove(), 620);
 }
 
 function spawnTreeSlamEffect(event, frame) {
