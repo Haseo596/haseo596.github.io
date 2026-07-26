@@ -16,6 +16,7 @@ import {
 
 let rosterSignature = null;
 const ballShadow = document.getElementById("ballShadow");
+const curveTrail = document.getElementById("curveTrail");
 
 export function renderFrame(now) {
   const playbackTimeMs = state.usesTimeline ? getPlaybackTimeMs() : null;
@@ -391,6 +392,22 @@ function interpolateVisualBall(previousBall, targetBall, t) {
     powerShot: t >= 0.999
       ? Boolean(targetBall?.powerShot)
       : Boolean(previousBall?.powerShot),
+    curveActive: t >= 0.999
+      ? Boolean(targetBall?.curveActive)
+      : Boolean(previousBall?.curveActive),
+    curveSide: t >= 0.999
+      ? Number(targetBall?.curveSide || 0)
+      : Number(previousBall?.curveSide || 0),
+    velocityLane: lerp(
+      previousBall?.velocityLane ?? 0,
+      targetBall?.velocityLane ?? 0,
+      t
+    ),
+    velocityColumn: lerp(
+      previousBall?.velocityColumn ?? 0,
+      targetBall?.velocityColumn ?? 0,
+      t
+    ),
     lane: lerp(previousBall?.lane ?? targetBall?.lane ?? 1, targetBall?.lane ?? previousBall?.lane ?? 1, t),
     column: lerp(previousBall?.column ?? targetBall?.column ?? 3, targetBall?.column ?? previousBall?.column ?? 3, t),
     z: lerp(previousBall?.z ?? 0, targetBall?.z ?? 0, t),
@@ -956,6 +973,34 @@ function renderBall(frame) {
   els.ball.style.setProperty("--ball-lift", `${lift}px`);
   els.ball.style.setProperty("--ball-scale", String(scale));
   els.ball.classList.toggle("powerShot", Boolean(frame.ball.powerShot));
+
+  if (curveTrail) {
+    const velocityLane = Number(frame.ball.velocityLane || 0);
+    const velocityColumn = Number(frame.ball.velocityColumn || 0);
+    const speed = Math.hypot(velocityLane, velocityColumn);
+    const active =
+      Boolean(frame.ball.curveActive) &&
+      frame.ball.holderPlayerId === null &&
+      speed > 0.01;
+    curveTrail.classList.toggle("active", active);
+    curveTrail.style.setProperty("--ball-x", `${position.x}%`);
+    curveTrail.style.setProperty("--ball-y", `${position.y}%`);
+    curveTrail.style.setProperty("--ball-lift", `${lift}px`);
+    if (active) {
+      const horizontalPixels =
+        velocityColumn /
+        Math.max(1, Number(field.playableColumns || field.columns)) *
+        els.pitch.clientWidth;
+      const verticalPixels =
+        velocityLane /
+        Math.max(1, Number(field.lanes)) *
+        els.pitch.clientHeight;
+      curveTrail.style.setProperty(
+        "--curve-angle",
+        `${Math.atan2(verticalPixels, horizontalPixels)}rad`
+      );
+    }
+  }
 
   if (ballShadow) {
     ballShadow.style.setProperty("--ball-x", `${position.x}%`);

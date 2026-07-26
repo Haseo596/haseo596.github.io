@@ -27,9 +27,21 @@ export function normalizeFrame(message) {
       lastTouchPlayerId: normalizeId(message.ball?.lastTouchPlayerId),
       power: Number(message.ball?.power || 0),
       powerShot: Boolean(message.ball?.powerShot),
+      curveActive: Boolean(message.ball?.curveActive),
+      curveSide: Math.sign(Number(message.ball?.curveSide || 0)),
       remainingSteps: Number(message.ball?.remainingSteps || 0),
       laneVelocity: Number(message.ball?.laneVelocity || 0),
       columnVelocity: Number(message.ball?.columnVelocity || 0),
+      velocityLane: Number(
+        message.ball?.velocityLane ??
+        message.ball?.VelocityLane ??
+        0
+      ),
+      velocityColumn: Number(
+        message.ball?.velocityColumn ??
+        message.ball?.VelocityColumn ??
+        0
+      ),
       targetLane: normalizeNullableCoordinate(
         finiteNumberOrNull(message.ball?.targetLane ?? message.ball?.TargetLane),
         "lane",

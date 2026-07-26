@@ -530,6 +530,37 @@ h1 {
   z-index: 20;
 }
 
+.curveTrail {
+  position: absolute;
+  left: var(--ball-x, 50%);
+  top: var(--ball-y, 50%);
+  z-index: 19;
+  width: clamp(34px, 4.2vw, 50px);
+  height: clamp(18px, 2.8vw, 30px);
+  border-radius: 999px 45% 45% 999px;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(44, 157, 255, 0) 0%,
+    rgba(57, 170, 255, 0.26) 24%,
+    rgba(87, 194, 255, 0.70) 67%,
+    rgba(174, 231, 255, 0.92) 100%
+  );
+  box-shadow:
+    0 0 7px rgba(64, 178, 255, 0.62),
+    inset -3px 0 5px rgba(224, 248, 255, 0.62);
+  filter: blur(0.35px);
+  transform:
+    translate(-100%, calc(-50% - var(--ball-lift, 0px)))
+    rotate(var(--curve-angle, 0rad));
+  transform-origin: 100% 50%;
+}
+
+.curveTrail.active {
+  opacity: 1;
+}
+
 .ballShadow {
   z-index: 3;
 }
