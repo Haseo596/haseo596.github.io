@@ -809,6 +809,81 @@ h1 {
   animation: sorc-lightning-flicker 150ms steps(2, end) infinite reverse;
 }
 
+.swapLightning {
+  position: absolute;
+  z-index: 17;
+  height: 8px;
+  pointer-events: none;
+  transform-origin: 0 50%;
+  will-change: left, top, width, transform;
+}
+
+.swapLightning::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 100%;
+  height: 5px;
+  background: #83ddff;
+  clip-path: polygon(
+    0 42%,
+    12% 15%,
+    24% 70%,
+    38% 25%,
+    52% 74%,
+    66% 30%,
+    80% 68%,
+    100% 45%,
+    100% 62%,
+    80% 84%,
+    66% 47%,
+    52% 90%,
+    38% 43%,
+    24% 88%,
+    12% 39%,
+    0 62%
+  );
+  filter: drop-shadow(0 0 2px #d8f6ff) drop-shadow(0 0 4px #389cd9);
+  transform: translateY(-50%);
+  animation: swap-lightning-flicker 95ms steps(2, end) infinite;
+}
+
+.swapLightning.projectile::after {
+  content: "";
+  position: absolute;
+  right: -5px;
+  top: 50%;
+  width: 10px;
+  aspect-ratio: 1;
+  border: 1px solid rgba(225, 250, 255, 0.92);
+  border-radius: 50%;
+  background: #63cbf6;
+  box-shadow:
+    0 0 5px #bdefff,
+    0 0 11px rgba(65, 174, 231, 0.92);
+  transform: translateY(-50%);
+  animation: swap-projectile-pulse 180ms ease-in-out infinite alternate;
+}
+
+.swapLightning.impact::before {
+  background: #b6edff;
+  filter: drop-shadow(0 0 2px #effcff) drop-shadow(0 0 5px #57bfe9);
+}
+
+.swapLightning.impact::after {
+  content: "";
+  position: absolute;
+  right: -5px;
+  top: 50%;
+  width: 11px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgba(180, 237, 255, 0.82);
+  box-shadow: 0 0 10px #61c9ee;
+  transform: translateY(-50%);
+}
+
 .wardenEffect {
   position: absolute;
   left: 50%;
@@ -1293,6 +1368,35 @@ h1 {
   100% {
     opacity: 0.82;
     scale: 1 0.88;
+  }
+}
+
+@keyframes swap-lightning-flicker {
+  0% {
+    opacity: 0.72;
+    scale: 1 0.72;
+  }
+
+  50% {
+    opacity: 1;
+    scale: 1 1.16;
+  }
+
+  100% {
+    opacity: 0.84;
+    scale: 1 0.88;
+  }
+}
+
+@keyframes swap-projectile-pulse {
+  from {
+    scale: 0.82;
+    opacity: 0.82;
+  }
+
+  to {
+    scale: 1.12;
+    opacity: 1;
   }
 }
 

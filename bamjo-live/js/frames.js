@@ -88,6 +88,9 @@ export function normalizeFrame(message) {
       team: event.team || null,
       actor: event.actor || null,
       actorId: normalizeId(event.actorId ?? event.ActorId),
+      targetPlayerId: normalizeId(
+        event.targetPlayerId ?? event.TargetPlayerId
+      ),
       hero: event.hero || null,
       offset: finiteNumberOrNull(event.offset),
       timeMs: finiteNumberOrNull(event.timeMs),
@@ -101,6 +104,20 @@ export function normalizeFrame(message) {
       ),
       actorColumn: normalizeNullableCoordinate(
         finiteNumberOrNull(event.actorColumn ?? event.ActorColumn),
+        "column",
+        legacyGrid
+      ),
+      effectTargetLane: normalizeNullableCoordinate(
+        finiteNumberOrNull(
+          event.effectTargetLane ?? event.EffectTargetLane
+        ),
+        "lane",
+        legacyGrid
+      ),
+      effectTargetColumn: normalizeNullableCoordinate(
+        finiteNumberOrNull(
+          event.effectTargetColumn ?? event.EffectTargetColumn
+        ),
         "column",
         legacyGrid
       ),

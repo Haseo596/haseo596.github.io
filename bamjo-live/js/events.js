@@ -3,6 +3,9 @@ import { cellToPercent, formatMatchTime, heroImage, teamColor, trimSet } from ".
 
 const eventScrollBottomTolerance = 24;
 const pausedEventLimit = maxEvents * 8;
+const swapProjectileSpeed = 21.312;
+const swapProjectileMaximumDurationMs = 1800;
+const activeSwapProjectiles = new Map();
 let followLatestEvent = true;
 let selectedEventKey = null;
 
@@ -162,6 +165,9 @@ function shouldSpawnEffect(event) {
     (hero === "sorc" &&
       hasTag(event, "sorc_pull") &&
       hasTag(event, "pull_start")) ||
+    (hero === "swap" &&
+      (hasTag(event, "swap_projectile") ||
+        hasTag(event, "swap_impact"))) ||
     (hero === "shaman" &&
       hasTag(event, "shaman_tackle") &&
       hasTag(event, "dash_start")) ||
@@ -191,6 +197,15 @@ function spawnEffect(event, frame) {
       hasTag(event, "sorc_pull") &&
       hasTag(event, "pull_start")) {
     spawnSorcPullEffect(event);
+    return;
+  }
+
+  if (String(event.hero || "").toLowerCase() === "swap") {
+    if (hasTag(event, "swap_impact")) {
+      spawnSwapImpactEffect(event);
+    } else if (hasTag(event, "swap_projectile")) {
+      spawnSwapProjectileEffect(event, frame);
+    }
     return;
   }
 
@@ -370,6 +385,144 @@ function spawnSorcPullEffect(event) {
   };
 
   animationFrame = requestAnimationFrame(update);
+}
+
+function spawnSwapProjectileEffect(event, frame) {
+  const actorKey = event.actorId === null || event.actorId === undefined
+    ? null
+    : String(event.actorId);
+  if (!actorKey) {
+    return;
+  }
+
+  stopActiveSwapProjectile(actorKey);
+  const start = actorPoint(event, frame);
+  const end = effectPoint(event, frame);
+  const distance = Math.hypot(
+    end.lane - start.lane,
+    end.column - start.column);
+  const durationMs = Math.max(
+    80,
+    Math.min(
+      swapProjectileMaximumDurationMs,
+      distance / swapProjectileSpeed * 1000));
+  const el = document.createElement("div");
+  el.className = "swapLightning projectile";
+  els.effectsLayer.appendChild(el);
+
+  const startedAt = performance.now();
+  let animationFrame = 0;
+  const remove = () => {
+    cancelAnimationFrame(animationFrame);
+    el.remove();
+    if (activeSwapProjectiles.get(actorKey)?.element === el) {
+      activeSwapProjectiles.delete(actorKey);
+    }
+  };
+  activeSwapProjectiles.set(actorKey, { element: el, remove });
+
+  const update = (now) => {
+    if (!el.isConnected || now - startedAt >= durationMs) {
+      remove();
+      return;
+    }
+
+    const progress = Math.max(0, Math.min(1, (now - startedAt) / durationMs));
+    const projectilePoint = {
+      lane: start.lane + (end.lane - start.lane) * progress,
+      column: start.column + (end.column - start.column) * progress
+    };
+    const endpoint = cellToPercent(
+      projectilePoint.lane,
+      projectilePoint.column,
+      { overflow: 0.5 });
+    const layerBounds = els.effectsLayer.getBoundingClientRect();
+    const actor = state.playerEls.get(actorKey);
+    const actorBounds = actor
+      ? (actor.querySelector(".playerIcon") || actor).getBoundingClientRect()
+      : null;
+    const fallbackStart = cellToPercent(start.lane, start.column);
+    const fromX = actorBounds
+      ? actorBounds.left + actorBounds.width / 2 - layerBounds.left
+      : layerBounds.width * fallbackStart.x / 100;
+    const fromY = actorBounds
+      ? actorBounds.top + actorBounds.height / 2 - layerBounds.top
+      : layerBounds.height * fallbackStart.y / 100;
+    const toX = layerBounds.width * endpoint.x / 100;
+    const toY = layerBounds.height * endpoint.y / 100;
+    positionLightning(el, fromX, fromY, toX, toY);
+    animationFrame = requestAnimationFrame(update);
+  };
+
+  animationFrame = requestAnimationFrame(update);
+}
+
+function spawnSwapImpactEffect(event) {
+  const actorKey = event.actorId === null || event.actorId === undefined
+    ? null
+    : String(event.actorId);
+  const targetKey =
+    event.targetPlayerId === null || event.targetPlayerId === undefined
+      ? null
+      : String(event.targetPlayerId);
+  if (!actorKey || !targetKey) {
+    return;
+  }
+
+  stopActiveSwapProjectile(actorKey);
+  const el = document.createElement("div");
+  el.className = "swapLightning impact";
+  els.effectsLayer.appendChild(el);
+
+  const startedAt = performance.now();
+  const durationMs = 400;
+  let animationFrame = 0;
+  const remove = () => {
+    cancelAnimationFrame(animationFrame);
+    el.remove();
+  };
+  const update = (now) => {
+    if (!el.isConnected || now - startedAt >= durationMs) {
+      remove();
+      return;
+    }
+
+    const actor = state.playerEls.get(actorKey);
+    const target = state.playerEls.get(targetKey);
+    if (actor && target) {
+      const layerBounds = els.effectsLayer.getBoundingClientRect();
+      const actorBounds = (actor.querySelector(".playerIcon") || actor)
+        .getBoundingClientRect();
+      const targetBounds = (target.querySelector(".playerIcon") || target)
+        .getBoundingClientRect();
+      positionLightning(
+        el,
+        actorBounds.left + actorBounds.width / 2 - layerBounds.left,
+        actorBounds.top + actorBounds.height / 2 - layerBounds.top,
+        targetBounds.left + targetBounds.width / 2 - layerBounds.left,
+        targetBounds.top + targetBounds.height / 2 - layerBounds.top);
+    }
+    animationFrame = requestAnimationFrame(update);
+  };
+
+  animationFrame = requestAnimationFrame(update);
+}
+
+function stopActiveSwapProjectile(actorKey) {
+  const active = activeSwapProjectiles.get(actorKey);
+  if (active) {
+    active.remove();
+  }
+}
+
+function positionLightning(el, fromX, fromY, toX, toY) {
+  const deltaX = toX - fromX;
+  const deltaY = toY - fromY;
+  el.style.left = `${fromX}px`;
+  el.style.top = `${fromY}px`;
+  el.style.width = `${Math.max(2, Math.hypot(deltaX, deltaY))}px`;
+  el.style.transform =
+    `translateY(-50%) rotate(${Math.atan2(deltaY, deltaX)}rad)`;
 }
 
 function actorPoint(event, frame) {
